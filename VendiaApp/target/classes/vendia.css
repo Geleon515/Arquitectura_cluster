@@ -1,0 +1,90 @@
+/* ── TableView: tema claro sobre Modena ── */
+
+.table-view {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 1;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #f1f5f9;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-view .column-header,
+.table-view .filler {
+    -fx-background-color: transparent;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 1 0 0;
+    -fx-size: 36px;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: #374151;
+    -fx-font-family: "Segoe UI";
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+/* Filas */
+.table-row-cell {
+    -fx-background-color: #ffffff;
+    -fx-border-color: transparent transparent #f1f5f9 transparent;
+    -fx-border-width: 1;
+}
+
+.table-row-cell:odd {
+    -fx-background-color: #f8fafc;
+}
+
+/* Celdas */
+.table-row-cell .table-cell {
+    -fx-text-fill: #1e293b;
+    -fx-font-family: "Segoe UI";
+    -fx-font-size: 13px;
+    -fx-background-color: transparent;
+    -fx-padding: 8 10;
+}
+
+/* Selección */
+.table-row-cell:selected {
+    -fx-background-color: #e0e7ff;
+}
+
+.table-row-cell:selected .table-cell {
+    -fx-text-fill: #3730a3;
+}
+
+/* Tabla vacía */
+.table-view .placeholder .label {
+    -fx-text-fill: #94a3b8;
+    -fx-font-family: "Segoe UI";
+    -fx-font-size: 13px;
+}
+
+/* Scrollbars */
+.table-view .scroll-bar:vertical,
+.table-view .scroll-bar:horizontal {
+    -fx-background-color: #f8fafc;
+}
+
+.table-view .scroll-bar .thumb {
+    -fx-background-color: #cbd5e1;
+    -fx-background-radius: 4;
+}
+
+.table-view .scroll-bar .track,
+.table-view .scroll-bar .track-background {
+    -fx-background-color: #f1f5f9;
+}
+
+.table-view .scroll-bar .increment-button,
+.table-view .scroll-bar .decrement-button {
+    -fx-background-color: #f1f5f9;
+}
+
+.table-view .scroll-bar .increment-arrow,
+.table-view .scroll-bar .decrement-arrow {
+    -fx-background-color: #94a3b8;
+}

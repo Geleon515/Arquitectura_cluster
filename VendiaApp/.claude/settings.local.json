@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Gerardo\\\\Downloads\\\\VendiaApp \\(1\\)\\\\VendiaApp\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(Format-Table -AutoSize)"
+    ]
+  }
+}

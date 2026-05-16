@@ -1,0 +1,7 @@
+# Copia este archivo como updater.properties y rellena tus valores reales
+
+puerto=9090
+
+db.url=jdbc:mysql://localhost:3306/loginmarket
+db.usuario=root
+db.password=tu_password_aqui

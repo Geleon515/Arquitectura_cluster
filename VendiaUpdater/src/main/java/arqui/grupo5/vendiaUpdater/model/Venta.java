@@ -1,6 +1,7 @@
 package arqui.grupo5.vendiaUpdater.model;
 
 public class Venta {
+    public static final int RECORD_SIZE  = 130;
     public static final int ID_LEN       = 20;
     public static final int VENDEDOR_LEN = 20;
     public static final int FECHA_LEN    = 20;

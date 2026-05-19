@@ -1,6 +1,6 @@
 package arqui.grupo5;
 
-import arqui.grupo5.vendiaUpdater.server.TcpServer;
+import arqui.grupo5.vendiaUpdater.watcher.FolderWatcher;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -15,26 +15,29 @@ public class Main {
     public static void main(String[] args) throws Exception {
         Properties cfg = cargarConfig("updater.properties");
 
-        int    puerto = Integer.parseInt(cfg.getProperty("puerto",   "9090"));
-        String dbUrl  = cfg.getProperty("db.url",      "jdbc:mysql://localhost:3306/logimarket");
-        String dbUser = cfg.getProperty("db.usuario",  "root");
-        String dbPass = cfg.getProperty("db.password", "");
+        String carpetaDatos    = cfg.getProperty("carpeta.datos",         "C:\\Users\\USER\\Desktop\\DATOS");
+        long   intervaloMs     = Long.parseLong(cfg.getProperty("intervalo.polling.ms", "2000"));
+        String dbUrl           = cfg.getProperty("db.url",                "jdbc:mysql://localhost:3306/logimarket");
+        String dbUser          = cfg.getProperty("db.usuario",            "root");
+        String dbPass          = cfg.getProperty("db.password",           "");
 
         System.out.println("=================================================");
         System.out.println("  VendiaUpdater — LogiMarket Peru S.A.");
         System.out.println("=================================================");
-        System.out.println("  Puerto TCP  : " + puerto);
-        System.out.println("  BD URL      : " + dbUrl);
-        System.out.println("  BD usuario  : " + dbUser);
+        System.out.println("  Carpeta DATOS : " + carpetaDatos);
+        System.out.println("  Polling (ms)  : " + intervaloMs);
+        System.out.println("  BD URL        : " + dbUrl);
+        System.out.println("  BD usuario    : " + dbUser);
         System.out.println("=================================================");
         System.out.println();
 
-        TcpServer servidor = new TcpServer(puerto, dbUrl, dbUser, dbPass, Main::log);
-        servidor.iniciar();
+        FolderWatcher watcher = new FolderWatcher(
+            carpetaDatos, intervaloMs, dbUrl, dbUser, dbPass, Main::log);
+        watcher.iniciar();
 
-        System.out.println("Servidor activo. Presione ENTER para detener.");
+        System.out.println("Daemon activo. Presione ENTER para detener.");
         System.in.read();
-        servidor.detener();
+        watcher.detener();
     }
 
     private static Properties cargarConfig(String ruta) {

@@ -3,6 +3,7 @@ package arqui.grupo5.vendiaUpdater.db;
 import arqui.grupo5.vendiaUpdater.model.Venta;
 
 import java.sql.*;
+import java.util.List;
 
 public class MySqlRepository implements AutoCloseable {
 
@@ -41,6 +42,34 @@ public class MySqlRepository implements AutoCloseable {
             ps.setDouble(4, v.getMontoTotal());
             ps.setString(5, String.valueOf(v.getEstado()));
             ps.executeUpdate();
+        }
+    }
+
+    public void insertarBatch(List<Venta> ventas) throws SQLException {
+        if (ventas.isEmpty()) return;
+
+        String sql = """
+            INSERT IGNORE INTO ventas (id_venta, id_vendedor, fecha, monto_total, estado)
+            VALUES (?, ?, ?, ?, ?)
+            """;
+        boolean autoCommitPrevio = conn.getAutoCommit();
+        conn.setAutoCommit(false);
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (Venta v : ventas) {
+                ps.setString(1, v.getIdVenta());
+                ps.setString(2, v.getIdVendedor());
+                ps.setString(3, v.getFecha());
+                ps.setDouble(4, v.getMontoTotal());
+                ps.setString(5, String.valueOf(v.getEstado()));
+                ps.addBatch();
+            }
+            ps.executeBatch();
+            conn.commit();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(autoCommitPrevio);
         }
     }
 

@@ -36,14 +36,14 @@
                 </HBox>
             </TitledPane>
 
-            <!-- Seccion: Servidor -->
-            <TitledPane text="Servidor destino" collapsible="false" maxHeight="-Infinity">
-                <HBox spacing="10" alignment="CENTER_LEFT">
+            <!-- Seccion: Carpeta compartida -->
+            <TitledPane text="Carpeta compartida (destino)" collapsible="false" maxHeight="-Infinity">
+                <HBox spacing="8" alignment="CENTER_LEFT">
                     <padding><Insets top="8" right="8" bottom="8" left="8"/></padding>
-                    <Label text="Direccion IP:"/>
-                    <TextField fx:id="txtHost" text="127.0.0.1" prefWidth="160"/>
-                    <Label text="Puerto:"/>
-                    <TextField fx:id="txtPuerto" text="9090" prefWidth="75"/>
+                    <TextField fx:id="txtCarpetaDatos"
+                               promptText="Ruta de carpeta DATOS (ej: C:\Users\USER\Desktop\DATOS)"
+                               HBox.hgrow="ALWAYS"/>
+                    <Button text="Examinar carpeta..." onAction="#onBrowseCarpeta"/>
                 </HBox>
             </TitledPane>
 

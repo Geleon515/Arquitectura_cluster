@@ -1,7 +1,7 @@
 package arqui.grupo5.vendiasender.controller;
 
 import arqui.grupo5.vendiasender.model.Venta;
-import arqui.grupo5.vendiasender.sender.TcpSender;
+import arqui.grupo5.vendiasender.sender.FileSender;
 import arqui.grupo5.vendiasender.storage.VentaStorage;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -15,6 +15,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
 import java.io.File;
@@ -25,10 +26,9 @@ import java.util.List;
 public class SenderController {
 
     @FXML private TextField txtRutaDat;
-    @FXML private TextField txtHost;
-    @FXML private TextField txtPuerto;
+    @FXML private TextField txtCarpetaDatos;
 
-    @FXML private TableView<Venta>        tablaPendientes;
+    @FXML private TableView<Venta>           tablaPendientes;
     @FXML private TableColumn<Venta, String> colId;
     @FXML private TableColumn<Venta, String> colVendedor;
     @FXML private TableColumn<Venta, String> colFecha;
@@ -56,7 +56,7 @@ public class SenderController {
         });
 
         tablaPendientes.setItems(pendientes);
-        log("Sistema iniciado. Seleccione ventas.dat y configure el servidor.");
+        log("Sistema iniciado. Seleccione ventas.dat y la carpeta compartida DATOS\\.");
     }
 
     @FXML
@@ -74,6 +74,16 @@ public class SenderController {
     }
 
     @FXML
+    private void onBrowseCarpeta() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("Seleccionar carpeta compartida DATOS");
+        File carpeta = chooser.showDialog(txtCarpetaDatos.getScene().getWindow());
+        if (carpeta != null) {
+            txtCarpetaDatos.setText(carpeta.getAbsolutePath());
+        }
+    }
+
+    @FXML
     private void onCargar() {
         cargarPendientes();
     }
@@ -87,7 +97,7 @@ public class SenderController {
         try {
             VentaStorage storage = new VentaStorage(ruta);
             if (!storage.existe()) {
-                log("ERROR: el archivo no existe → " + ruta);
+                log("ERROR: el archivo no existe -> " + ruta);
                 return;
             }
             List<Venta> lista = storage.leerPendientes();
@@ -103,18 +113,10 @@ public class SenderController {
     @FXML
     private void onEnviar() {
         String ruta     = txtRutaDat.getText().trim();
-        String host     = txtHost.getText().trim();
-        String puertoTxt = txtPuerto.getText().trim();
+        String carpeta  = txtCarpetaDatos.getText().trim();
 
-        if (ruta.isEmpty() || host.isEmpty() || puertoTxt.isEmpty()) {
-            log("ERROR: complete todos los campos antes de enviar.");
-            return;
-        }
-        int puerto;
-        try {
-            puerto = Integer.parseInt(puertoTxt);
-        } catch (NumberFormatException e) {
-            log("ERROR: el puerto debe ser un numero entero.");
+        if (ruta.isEmpty() || carpeta.isEmpty()) {
+            log("ERROR: complete la ruta del archivo y la carpeta compartida antes de enviar.");
             return;
         }
 
@@ -130,7 +132,7 @@ public class SenderController {
         Task<Void> tarea = new Task<>() {
             @Override
             protected Void call() throws Exception {
-                TcpSender sender = new TcpSender(host, puerto);
+                FileSender sender = new FileSender(carpeta);
                 sender.enviar(aEnviar, msg -> Platform.runLater(() -> log(msg)));
 
                 VentaStorage storage = new VentaStorage(ruta);

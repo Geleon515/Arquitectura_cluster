@@ -82,7 +82,7 @@ public class FileSender {
                 return contenido;
             }
             try {
-                Thread.sleep(POLL_MS);
+                Thread.sleep(POLL_MS); // esperamos 0.5 segundos
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IOException("Espera de ACK interrumpida", e);

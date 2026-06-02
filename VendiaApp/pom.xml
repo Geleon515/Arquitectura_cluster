@@ -60,12 +60,52 @@
                             <transformers>
                                 <transformer implementation=
                                     "org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>arqui.grupo5.ui.VendiaApp</mainClass>
+                                    <mainClass>arqui.grupo5.ui.Launcher</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <!-- Copia el fat-jar a una carpeta limpia para alimentar jpackage -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-jar-for-jpackage</id>
+                        <phase>package</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <delete dir="${project.build.directory}/jpackage-input"/>
+                                <mkdir dir="${project.build.directory}/jpackage-input"/>
+                                <copy file="${project.build.directory}/vendia-app-1.0.0.jar"
+                                      todir="${project.build.directory}/jpackage-input"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Plugin para generar el .exe portable con jpackage (JDK 14+) -->
+            <plugin>
+                <groupId>org.panteleyev</groupId>
+                <artifactId>jpackage-maven-plugin</artifactId>
+                <version>1.6.5</version>
+                <configuration>
+                    <name>VendiaApp</name>
+                    <appVersion>1.0.0</appVersion>
+                    <vendor>LogiMarket Peru S.A.</vendor>
+                    <destination>${project.build.directory}/dist</destination>
+                    <input>${project.build.directory}/jpackage-input</input>
+                    <mainJar>vendia-app-1.0.0.jar</mainJar>
+                    <mainClass>arqui.grupo5.ui.Launcher</mainClass>
+                    <type>APP_IMAGE</type>
+                    <winConsole>false</winConsole>
+                </configuration>
             </plugin>
         </plugins>
     </build>

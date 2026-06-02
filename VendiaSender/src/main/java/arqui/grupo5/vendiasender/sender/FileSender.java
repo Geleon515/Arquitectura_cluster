@@ -18,7 +18,6 @@ import java.util.function.Consumer;
  * Envia las ventas pendientes copiando un archivo binario a la carpeta
  * compartida DATOS\ y espera la aparicion del archivo .ack correspondiente
  * como confirmacion de que VendiaUpdater las inserto en MySQL.
- *
  * Reemplaza al antiguo TcpSender que usaba sockets TCP.
  */
 public class FileSender {

@@ -20,6 +20,7 @@ public class MySqlRepository implements AutoCloseable {
                 id_venta     VARCHAR(20) PRIMARY KEY,
                 id_vendedor  VARCHAR(20) NOT NULL,
                 fecha        VARCHAR(20) NOT NULL,
+                region       VARCHAR(2)  NOT NULL DEFAULT '00',
                 monto_total  DOUBLE      NOT NULL,
                 estado       CHAR(1)     NOT NULL,
                 recibido_en  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
@@ -32,15 +33,16 @@ public class MySqlRepository implements AutoCloseable {
 
     public void insertarVenta(Venta v) throws SQLException {
         String sql = """
-            INSERT IGNORE INTO ventas (id_venta, id_vendedor, fecha, monto_total, estado)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT IGNORE INTO ventas (id_venta, id_vendedor, fecha, region, monto_total, estado)
+            VALUES (?, ?, ?, ?, ?, ?)
             """;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, v.getIdVenta());
             ps.setString(2, v.getIdVendedor());
             ps.setString(3, v.getFecha());
-            ps.setDouble(4, v.getMontoTotal());
-            ps.setString(5, String.valueOf(v.getEstado()));
+            ps.setString(4, v.getRegion());
+            ps.setDouble(5, v.getMontoTotal());
+            ps.setString(6, String.valueOf(v.getEstado()));
             ps.executeUpdate();
         }
     }
@@ -49,8 +51,8 @@ public class MySqlRepository implements AutoCloseable {
         if (ventas.isEmpty()) return;
 
         String sql = """
-            INSERT IGNORE INTO ventas (id_venta, id_vendedor, fecha, monto_total, estado)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT IGNORE INTO ventas (id_venta, id_vendedor, fecha, region, monto_total, estado)
+            VALUES (?, ?, ?, ?, ?, ?)
             """;
         boolean autoCommitPrevio = conn.getAutoCommit();
         conn.setAutoCommit(false);
@@ -59,8 +61,9 @@ public class MySqlRepository implements AutoCloseable {
                 ps.setString(1, v.getIdVenta());
                 ps.setString(2, v.getIdVendedor());
                 ps.setString(3, v.getFecha());
-                ps.setDouble(4, v.getMontoTotal());
-                ps.setString(5, String.valueOf(v.getEstado()));
+                ps.setString(4, v.getRegion());
+                ps.setDouble(5, v.getMontoTotal());
+                ps.setString(6, String.valueOf(v.getEstado()));
                 ps.addBatch();
             }
             ps.executeBatch();

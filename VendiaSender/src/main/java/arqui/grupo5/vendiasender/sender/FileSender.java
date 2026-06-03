@@ -66,6 +66,7 @@ public class FileSender {
                 writeChars(out, v.getIdVenta(),    Venta.ID_LEN);
                 writeChars(out, v.getIdVendedor(), Venta.VENDEDOR_LEN);
                 writeChars(out, v.getFecha(),      Venta.FECHA_LEN);
+                writeChars(out, v.getRegion(),     Venta.REGION_LEN);
                 out.writeDouble(v.getMontoTotal());
                 out.writeChar(v.getEstado());
             }

@@ -26,6 +26,7 @@ public class VendiaApp extends Application {
 
     private TextField txtIdVendedor;
     private TextField txtMonto;
+    private TextField txtRegion;
     private TextField txtBuscarId;
     private TextField txtNuevoMonto;
     private Label     lblStatus;
@@ -48,6 +49,7 @@ public class VendiaApp extends Application {
         private final StringProperty idVenta    = new SimpleStringProperty();
         private final StringProperty idVendedor = new SimpleStringProperty();
         private final StringProperty fecha      = new SimpleStringProperty();
+        private final StringProperty region     = new SimpleStringProperty();
         private final DoubleProperty monto      = new SimpleDoubleProperty();
         private final StringProperty estado     = new SimpleStringProperty();
 
@@ -55,6 +57,7 @@ public class VendiaApp extends Application {
             idVenta.set(v.getIdVenta());
             idVendedor.set(v.getIdVendedor());
             fecha.set(v.getFecha());
+            region.set(v.getRegion() != null ? v.getRegion() : "");
             monto.set(v.getMontoTotal());
             estado.set(estadoTexto(v.getEstado()));
         }
@@ -71,6 +74,7 @@ public class VendiaApp extends Application {
         public StringProperty idVentaProperty()    { return idVenta; }
         public StringProperty idVendedorProperty() { return idVendedor; }
         public StringProperty fechaProperty()      { return fecha; }
+        public StringProperty regionProperty()     { return region; }
         public DoubleProperty montoProperty()      { return monto; }
         public StringProperty estadoProperty()     { return estado; }
         public String         getIdVenta()         { return idVenta.get(); }
@@ -197,6 +201,8 @@ public class VendiaApp extends Application {
 
         txtIdVendedor = crearTextField("Ej: VEN-001");
         txtMonto      = crearTextField("Ej: 125.50");
+        txtRegion     = crearTextField("Ej: 15");
+        txtRegion.setText("15"); // Lima por defecto
         txtMonto.setOnAction(e -> accionRegistrar());
 
         Button btnRegistrar = crearBoton("Registrar Venta", "#818cf8", "#ffffff");
@@ -206,6 +212,7 @@ public class VendiaApp extends Application {
                 tituloSeccion("Nueva Venta"),
                 etiqueta("ID Vendedor"), txtIdVendedor,
                 etiqueta("Monto (S/.)"), txtMonto,
+                etiqueta("Región (INEI)"), txtRegion,
                 btnRegistrar
         );
         return card;
@@ -298,11 +305,12 @@ public class VendiaApp extends Application {
         VBox.setVgrow(tabla, Priority.ALWAYS);
 
         tabla.getColumns().addAll(
-                columna("ID Venta",   "idVenta",    200),
-                columna("Vendedor",   "idVendedor",  90),
-                columna("Fecha",      "fecha",      140),
-                columnaDouble("Monto","monto",      110),
-                columnaEstado("Estado","estado",    110)
+                columna("ID Venta",   "idVenta",    180),
+                columna("Vendedor",   "idVendedor",  80),
+                columna("Fecha",      "fecha",      130),
+                columna("Región",     "region",      55),
+                columnaDouble("Monto","monto",      100),
+                columnaEstado("Estado","estado",    100)
         );
 
         datosTabla = FXCollections.observableArrayList();
@@ -353,6 +361,7 @@ public class VendiaApp extends Application {
     private void accionRegistrar() {
         String vendedor = txtIdVendedor.getText();
         String montoStr = txtMonto.getText();
+        String region   = txtRegion.getText();
 
         if (vendedor.isBlank() || montoStr.isBlank()) {
             setStatus("Complete todos los campos.", "#d97706");
@@ -361,7 +370,7 @@ public class VendiaApp extends Application {
 
         try {
             double monto = Double.parseDouble(montoStr.replace(",", "."));
-            Venta nueva = controller.registrarVenta(vendedor, monto);
+            Venta nueva = controller.registrarVenta(vendedor, monto, region);
             setStatus("Venta registrada: " + nueva.getIdVenta(), "#059669");
             txtIdVendedor.clear();
             txtMonto.clear();

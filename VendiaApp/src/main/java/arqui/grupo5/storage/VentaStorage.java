@@ -19,14 +19,21 @@ import java.util.*;
  */
 public class VentaStorage {
 
-    private static final String ARCHIVO_DAT = "ventas.dat";
-    private static final String ARCHIVO_IDX = "ventas.idx";
+    private String archivoDat = "ventas.dat";
+    private String archivoIdx = "ventas.idx";
 
     // Índice en memoria: idVenta → posición en bytes dentro de ventas.dat
     // Se carga al iniciar y se persiste en ventas.idx
     private final TreeMap<String, Long> indice = new TreeMap<>();
 
     public VentaStorage() throws IOException {
+        cargarIndice();
+    }
+
+    /** Constructor alternativo para uso en Workers (ruta explícita). */
+    public VentaStorage(String rutaDat) throws IOException {
+        this.archivoDat = rutaDat;
+        this.archivoIdx = rutaDat.replace(".dat", ".idx");
         cargarIndice();
     }
 
@@ -43,7 +50,7 @@ public class VentaStorage {
             throw new IllegalArgumentException("Ya existe una venta con ID: " + venta.getIdVenta());
         }
 
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_DAT, "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoDat, "rw")) {
             long posicion = raf.length();        // posición al final del archivo
             raf.seek(posicion);
             escribirRegistro(raf, venta);
@@ -66,7 +73,7 @@ public class VentaStorage {
         Long posicion = indice.get(idVenta);
         if (posicion == null) return null;
 
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_DAT, "r")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoDat, "r")) {
             raf.seek(posicion);
             return leerRegistro(raf);
         }
@@ -77,14 +84,34 @@ public class VentaStorage {
      */
     public List<Venta> listarTodas() throws IOException {
         List<Venta> ventas = new ArrayList<>();
-        if (!new File(ARCHIVO_DAT).exists()) return ventas;
+        if (!new File(archivoDat).exists()) return ventas;
 
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_DAT, "r")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoDat, "r")) {
             while (raf.getFilePointer() < raf.length()) {
                 ventas.add(leerRegistro(raf));
             }
         }
         return ventas;
+    }
+
+    /**
+     * Retorna las ventas cuya región coincide con alguna de las regiones asignadas.
+     * Abre el archivo en modo solo lectura ("r") para acceso concurrente seguro.
+     */
+    public List<Venta> listarPorRegiones(List<String> regionesAsignadas) throws IOException {
+        List<Venta> resultado = new ArrayList<>();
+        File f = new File(archivoDat);
+        if (!f.exists()) return resultado;
+
+        try (RandomAccessFile raf = new RandomAccessFile(f, "r")) {
+            while (raf.getFilePointer() < raf.length()) {
+                Venta v = leerRegistro(raf);
+                if (v.getEstado() != 'X' && regionesAsignadas.contains(v.getRegion())) {
+                    resultado.add(v);
+                }
+            }
+        }
+        return resultado;
     }
 
     /**
@@ -110,7 +137,7 @@ public class VentaStorage {
         Long posicion = indice.get(venta.getIdVenta());
         if (posicion == null) return false;
 
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_DAT, "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoDat, "rw")) {
             raf.seek(posicion);
             Venta actual = leerRegistro(raf);
 
@@ -131,7 +158,7 @@ public class VentaStorage {
         Long posicion = indice.get(idVenta);
         if (posicion == null) return;
 
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_DAT, "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoDat, "rw")) {
             raf.seek(posicion);
             Venta v = leerRegistro(raf);
             v.setEstado('E');
@@ -153,7 +180,7 @@ public class VentaStorage {
         Long posicion = indice.get(idVenta);
         if (posicion == null) return false;
 
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_DAT, "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoDat, "rw")) {
             raf.seek(posicion);
             Venta v = leerRegistro(raf);
 
@@ -182,6 +209,7 @@ public class VentaStorage {
         raf.writeChars(Venta.padOrTruncate(v.getIdVenta(),    Venta.TAM_ID_VENTA));
         raf.writeChars(Venta.padOrTruncate(v.getIdVendedor(), Venta.TAM_ID_VENDEDOR));
         raf.writeChars(Venta.padOrTruncate(v.getFecha(),      Venta.TAM_FECHA));
+        raf.writeChars(Venta.padOrTruncate(v.getRegion(),     Venta.TAM_REGION));
         raf.writeDouble(v.getMontoTotal());
         raf.writeChar(v.getEstado());
     }
@@ -199,9 +227,13 @@ public class VentaStorage {
         char[] bufFec = new char[Venta.TAM_FECHA];
         for (int i = 0; i < Venta.TAM_FECHA;       i++) bufFec[i] = raf.readChar();
 
+        char[] bufReg = new char[Venta.TAM_REGION];
+        for (int i = 0; i < Venta.TAM_REGION;      i++) bufReg[i] = raf.readChar();
+
         v.setIdVenta(    new String(bufId).trim());
         v.setIdVendedor( new String(bufVen).trim());
         v.setFecha(      new String(bufFec).trim());
+        v.setRegion(     new String(bufReg).trim());
         v.setMontoTotal( raf.readDouble());
         v.setEstado(     raf.readChar());
         return v;
@@ -209,10 +241,10 @@ public class VentaStorage {
 
     /** Carga el índice desde ventas.idx al TreeMap en memoria. */
     private void cargarIndice() throws IOException {
-        File f = new File(ARCHIVO_IDX);
+        File f = new File(archivoIdx);
         if (!f.exists()) return;
 
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_IDX, "r")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoIdx, "r")) {
             while (raf.getFilePointer() < raf.length()) {
                 char[] bufId = new char[Venta.TAM_ID_VENTA];
                 for (int i = 0; i < Venta.TAM_ID_VENTA; i++) bufId[i] = raf.readChar();
@@ -225,7 +257,7 @@ public class VentaStorage {
 
     /** Persiste el TreeMap completo en ventas.idx (reescritura total). */
     private void guardarIndice() throws IOException {
-        try (RandomAccessFile raf = new RandomAccessFile(ARCHIVO_IDX, "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile(archivoIdx, "rw")) {
             raf.setLength(0); // limpiar archivo
             for (Map.Entry<String, Long> entry : indice.entrySet()) {
                 raf.writeChars(Venta.padOrTruncate(entry.getKey(), Venta.TAM_ID_VENTA));

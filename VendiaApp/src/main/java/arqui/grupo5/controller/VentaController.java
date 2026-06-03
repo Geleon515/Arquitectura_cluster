@@ -49,7 +49,7 @@ public class VentaController {
      * @return la Venta creada
      * @throws IllegalArgumentException si los datos son inválidos
      */
-    public Venta registrarVenta(String idVendedor, double monto) throws IOException {
+    public Venta registrarVenta(String idVendedor, double monto, String region) throws IOException {
         // Validaciones de negocio
         if (idVendedor == null || idVendedor.isBlank()) {
             throw new IllegalArgumentException("El ID del vendedor no puede estar vacío.");
@@ -60,11 +60,18 @@ public class VentaController {
         if (monto > 999999.99) {
             throw new IllegalArgumentException("El monto excede el límite permitido.");
         }
+        if (region == null || region.isBlank()) {
+            region = "15"; // Lima por defecto
+        }
+        if (region.trim().length() > 2) {
+            throw new IllegalArgumentException("El código de región debe tener máximo 2 caracteres.");
+        }
 
         Venta venta = new Venta(
                 generarIdVenta(),
                 idVendedor.trim().toUpperCase(),
                 getFechaActual(),
+                region.trim(),
                 monto
         );
 

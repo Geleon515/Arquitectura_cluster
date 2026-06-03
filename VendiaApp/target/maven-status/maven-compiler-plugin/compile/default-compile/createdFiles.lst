@@ -1,0 +1,12 @@
+arqui\grupo5\ui\VendiaApp$2.class
+arqui\grupo5\controller\VentaController.class
+arqui\grupo5\ui\Launcher.class
+arqui\grupo5\ui\VendiaApp.class
+arqui\grupo5\storage\VentaStorage.class
+arqui\grupo5\cluster\NodoWorker.class
+arqui\grupo5\ui\VendiaApp$1.class
+arqui\grupo5\model\Venta.class
+arqui\grupo5\cluster\NodoMaster.class
+module-info.class
+arqui\grupo5\ui\VendiaApp$VentaFX.class
+arqui\grupo5\ui\VendiaApp$3.class

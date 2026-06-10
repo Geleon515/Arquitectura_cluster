@@ -1,34 +1,27 @@
-# Sistema Vendia — Documentación General
-## LogiMarket Perú S.A. | Arquitectura Unitaria con Servidor Central
+# Sistema Vendia — Documentación Técnica
+## LogiMarket Perú S.A. | Arquitectura Cliente/Servidor
 
 ---
 
 ## Visión general
 
-El sistema está compuesto por **tres aplicaciones independientes** que trabajan en conjunto
-para registrar ventas en cada sede y consolidarlas en un servidor central.
+El sistema adopta una **arquitectura Cliente/Servidor de 4 capas**. Los ejecutables
+residen en el Servidor de Aplicaciones; los clientes los ejecutan desde accesos directos
+de red. Los datos operacionales se gestionan en el Servidor de BD y los datos analíticos
+en el Servidor de DataWarehouse.
 
 ```
-┌─────────────────────────────────────────┐
-│           SEDE (cada cajero)            │
-│                                         │
-│  1. VendiaApp  →  ventas.dat / .idx     │
-│     Registra ventas localmente          │
-│                                         │
-│  2. VendiaSender  (al cerrar turno)     │
-│     Copia ventas pendientes a DATOS\    │
-└──────────────────┬──────────────────────┘
-                   │  Carpeta compartida DATOS\
-                   │  ventas_<ts>.dat  →
-                   │  ventas_<ts>.ack  ←
-                   ▼
-┌─────────────────────────────────────────┐
-│           SERVIDOR CENTRAL              │
-│                                         │
-│  3. VendiaUpdater  (daemon)             │
-│     Vigila DATOS\ → INSERT en MySQL     │
-│     → escribe .ack                      │
-└─────────────────────────────────────────┘
+CLIENTES                  SERVIDOR DE APPS          SERVIDOR DE BD       SERVIDOR DE DW
+─────────                 ────────────────          ──────────────       ──────────────
+[Cajero 1]                VendiaApp\                MySQL                MySQL
+ └─ acceso directo ──────→ VendiaApp.exe             logimarket           logimarket_dw
+[Cajero 2]                VendiaSender\              tabla: ventas        dim_vendedor
+ └─ acceso directo ──────→ VendiaSender.exe               ↑              dim_fecha
+[Admin]                   GenerarDatawareHouse\           │              fact_ventas
+ └─ acceso directo ──────→ GenerarDatawareHouse.exe        │                  ↑
+                                                    VendiaUpdater         GenerarDW
+                               DATOS\ ────────────→ (daemon)    ──ETL──→ (en demanda)
+                          (carpeta compartida)
 ```
 
 ---
@@ -37,70 +30,74 @@ para registrar ventas en cada sede y consolidarlas en un servidor central.
 
 ### 1. VendiaApp — Cajero
 Aplicación de escritorio (JavaFX) que el cajero usa durante su turno.
+Reside en el Servidor de Aplicaciones; el cliente la ejecuta desde un acceso directo.
 
 - Registra, busca, modifica y elimina ventas
-- Persiste todo en archivos binarios locales (`ventas.dat`, `ventas.idx`)
-- Funciona **sin conexión a internet ni servidor**
+- Persiste todo en archivos binarios locales del cliente (`ventas.dat`, `ventas.idx`)
+- Funciona **sin conexión al servidor** durante el turno
 - Estado inicial de cada venta: `P` (Pendiente)
 
 ### 2. VendiaSender — Enviador
 Aplicación de escritorio (JavaFX) que se ejecuta **al cerrar el turno**.
+También reside en el Servidor de Aplicaciones.
 
 - Lee las ventas con estado `P` de `ventas.dat`
-- Las escribe a un archivo `ventas_<timestamp>.dat` en la carpeta compartida `DATOS\`
-- Se queda haciendo polling esperando que aparezca `ventas_<timestamp>.ack`
-  (timeout 30 s)
+- Las deposita en la carpeta compartida `DATOS\` como `ventas_<timestamp>.dat`
+- Hace polling esperando el `.ack` del servidor (timeout 30 s)
 - Si el `.ack` dice `OK`, marca cada venta como `E` (Enviada) en `ventas.dat`
 
-### 3. VendiaUpdater — Receptor (daemon)
-Aplicación de consola que corre permanentemente en el servidor central.
+### 3. VendiaUpdater — Receptor (daemon en Servidor de BD)
+Aplicación de consola que corre permanentemente en el Servidor de BD.
 
-- Vigila la carpeta compartida `DATOS\` cada N milisegundos (polling configurable)
-- Por cada archivo `.dat` que no tenga su `.ack` asociado, lee los registros
-  binarios y los inserta en MySQL usando **batch insert** transaccional
-- Escribe un archivo `.ack` con el mismo nombre base para confirmar al cliente
+- Vigila `DATOS\` cada N milisegundos (configurable)
+- Por cada `.dat` sin `.ack`, lee los registros binarios e inserta en MySQL
+- Escribe `.ack` con el mismo nombre base para confirmar al cliente
 - Crea la tabla `ventas` automáticamente si no existe
+
+### 4. GenerarDatawareHouse — ETL (en Servidor de Aplicaciones)
+Aplicación de escritorio (JavaFX) ejecutada por el administrador cuando necesita
+actualizar el DataWarehouse para análisis.
+
+- Lee todas las ventas de `logimarket.ventas` (Servidor de BD)
+- Crea el schema `logimarket_dw` automáticamente si no existe (Servidor de DW)
+- Ejecuta el proceso ETL: transforma y carga datos en un modelo dimensional (star schema)
+- Idempotente: ejecutarlo múltiples veces produce el mismo resultado
 
 ---
 
 ## Flujo completo paso a paso
 
 ```
-Cajero registra una venta en VendiaApp
+Cajero registra venta en VendiaApp (desde acceso directo al Servidor de Apps)
         │
         ▼
-Se escribe en ventas.dat (estado = 'P')
-Se actualiza ventas.idx con el nuevo offset
+Se escribe en ventas.dat local del cliente (estado = 'P')
         │
-        │   (durante el turno puede haber muchas ventas)
+        │   (durante el turno, muchas ventas)
         │
         ▼
-Al cerrar turno: cajero abre VendiaSender
+Al cerrar turno: cajero abre VendiaSender (desde acceso directo)
         │
         ▼
 VendiaSender lee ventas.dat → filtra estado = 'P'
-Genera un timestamp y escribe DATOS\ventas_<ts>.dat
-con los N registros de 130 bytes c/u
+Escribe DATOS\ventas_<ts>.dat en carpeta compartida
         │
         ▼
-VendiaSender se queda esperando DATOS\ventas_<ts>.ack
-(polling cada 500 ms, timeout 30 s)
-        │
-        ▼
-VendiaUpdater (loop infinito cada 2 s) detecta el .dat nuevo
-        │
-        ├─ Verifica que no exista ya su .ack (idempotencia)
+VendiaUpdater (loop en Servidor de BD) detecta el .dat
         ├─ Lee cada registro de 130 bytes
-        ├─ INSERT batch en MySQL (INSERT IGNORE si ya existe)
-        ├─ Escribe DATOS\ventas_<ts>.ack con "OK <N>"
-        │  (o "ERR <mensaje>" si fallo algo)
+        ├─ INSERT batch en MySQL logimarket.ventas (INSERT IGNORE)
+        └─ Escribe DATOS\ventas_<ts>.ack con "OK <N>"
         │
         ▼
-VendiaSender ve aparecer el .ack y lo lee
+VendiaSender recibe el .ack → marca ventas como 'E' en ventas.dat local
+        │
+        │   (cuando el administrador lo requiera)
         │
         ▼
-Si .ack = "OK ..." → marca las ventas como estado = 'E' en ventas.dat
-Si .ack = "ERR ..." → registra el error, no marca nada
+Admin abre GenerarDatawareHouse (desde acceso directo)
+        ├─ Lee logimarket.ventas
+        ├─ Agrupa por vendedor + mes
+        └─ Carga logimarket_dw: dim_vendedor, dim_fecha, fact_ventas
 ```
 
 ---
@@ -120,9 +117,6 @@ Cada venta ocupa exactamente **130 bytes**:
 | estado      | char     | 2     |
 | **Total**   |          | **130** |
 
-Los strings se rellenan con espacios hasta completar el tamaño fijo.
-Esto permite saltar directamente a cualquier registro con `seek(offset)`.
-
 **Estados posibles:**
 | Código | Significado |
 |--------|-------------|
@@ -133,71 +127,26 @@ Esto permite saltar directamente a cualquier registro con `seek(offset)`.
 ### ventas.idx — índice
 
 Cada entrada ocupa **48 bytes**: `idVenta (40 bytes)` + `posición en .dat (8 bytes)`.
-
-Se carga completo en memoria al iniciar VendiaApp como un `TreeMap<String, Long>`,
-permitiendo búsquedas en O(log N) sin recorrer el archivo de datos.
+Se carga en memoria como `TreeMap<String, Long>` para búsquedas O(log N).
 
 ---
 
 ## Protocolo de carpeta compartida
 
-La comunicación es por archivos depositados en la carpeta `DATOS\`, que actúa
-como un buzón bidireccional entre Sender y Updater. Cada envío produce un par
-de archivos relacionados por el mismo nombre base con distintas extensiones.
-
-### Nombres de archivo
-
-| Extensión | Origen | Destino | Contenido |
-|-----------|--------|---------|-----------|
-| `ventas_<timestamp>.dat` | VendiaSender | VendiaUpdater | Registros binarios de las ventas |
-| `ventas_<timestamp>.ack` | VendiaUpdater | VendiaSender | Texto de confirmación o error |
-
-El `<timestamp>` tiene formato `yyyyMMdd_HHmmss` y garantiza que distintos
-envíos no se pisen aunque caigan en la misma carpeta.
-
-### Formato del `.dat`
-
-Concatenación de N registros de 130 bytes, **mismo formato** que `ventas.dat`
-local del cliente (ver sección "Estructura de archivos binarios"). No hay
-cabecera con la cantidad: el Updater calcula `N = length / 130`.
-
-### Formato del `.ack`
-
-Archivo de texto plano con una sola línea:
-
-| Resultado | Formato | Significado |
-|-----------|---------|-------------|
-| Éxito  | `OK <N>`        | Las N ventas fueron insertadas en MySQL |
-| Error  | `ERR <mensaje>` | Algo falló al procesar; el sender no marca como enviadas |
-
-### Secuencia
-
-```
-VendiaSender                   Carpeta DATOS\                  VendiaUpdater
-────────────                   ──────────────                  ─────────────
-write ventas_<ts>.dat   →      ventas_<ts>.dat
-                                                               (polling cada 2 s)
-                                                               detecta .dat sin .ack
-                                                               lee N = length/130
-                                                               INSERT batch en MySQL
-                                              ventas_<ts>.ack  ← write "OK <N>"
-polling cada 500 ms     ←      ventas_<ts>.ack
-lee el .ack
-marca ventas como 'E'
-```
+| Extensión | Origen | Contenido |
+|-----------|--------|-----------|
+| `ventas_<ts>.dat` | VendiaSender | Registros binarios de las ventas (N × 130 bytes) |
+| `ventas_<ts>.ack` | VendiaUpdater | `OK <N>` o `ERR <mensaje>` |
 
 ### Idempotencia
 
-Si el Updater se reinicia, al volver a vigilar la carpeta encuentra los `.dat`
-viejos pero también encuentra sus `.ack`, así que los ignora — no reprocesa.
-Si el Sender se reenvía por error, el `INSERT IGNORE` de MySQL evita duplicados
-porque `id_venta` es clave primaria.
+El Updater ignora `.dat` que ya tienen su `.ack`. El `INSERT IGNORE` de MySQL evita
+duplicados por clave primaria. El ETL del DW usa `ON DUPLICATE KEY UPDATE`, por lo que
+ejecutarlo varias veces produce siempre el mismo resultado.
 
 ---
 
-## Esquema MySQL
-
-La tabla se crea automáticamente al arrancar VendiaUpdater:
+## Esquema MySQL — Servidor de BD (`logimarket`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS ventas (
@@ -210,78 +159,29 @@ CREATE TABLE IF NOT EXISTS ventas (
 );
 ```
 
-Solo se requiere que la **base de datos exista previamente**:
+## Esquema MySQL — Servidor de DW (`logimarket_dw`)
+
+Star schema creado automáticamente por `GenerarDatawareHouse`:
 
 ```sql
-CREATE DATABASE logimarket;
+CREATE TABLE IF NOT EXISTS dim_vendedor (
+    id_vendedor VARCHAR(20) PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS dim_fecha (
+    id_fecha  VARCHAR(7) PRIMARY KEY,   -- ej: "2026-06"
+    mes       INT NOT NULL,
+    anio      INT NOT NULL,
+    trimestre INT NOT NULL              -- 1..4
+);
+
+CREATE TABLE IF NOT EXISTS fact_ventas (
+    id_vendedor VARCHAR(20) NOT NULL,
+    id_fecha    VARCHAR(7)  NOT NULL,
+    monto_total DOUBLE      NOT NULL DEFAULT 0,
+    cantidad    INT         NOT NULL DEFAULT 0,
+    PRIMARY KEY (id_vendedor, id_fecha),
+    FOREIGN KEY (id_vendedor) REFERENCES dim_vendedor(id_vendedor),
+    FOREIGN KEY (id_fecha)    REFERENCES dim_fecha(id_fecha)
+);
 ```
-
----
-
-## Configuración y ejecución
-
-### VendiaApp
-
-```bash
-cd VendiaApp
-mvn clean compile
-mvn javafx:run
-```
-
-No requiere configuración adicional. Los archivos `ventas.dat` y `ventas.idx`
-se crean automáticamente en la carpeta raíz del proyecto.
-
----
-
-### VendiaUpdater (arrancar primero)
-
-1. Crear la base de datos en MySQL:
-   ```sql
-   CREATE DATABASE logimarket;
-   ```
-
-2. Crear la carpeta compartida (ej: `C:\Users\USER\Desktop\DATOS`).
-
-3. Editar `VendiaUpdater/updater.properties`:
-   ```properties
-   carpeta.datos=C:\\Users\\USER\\Desktop\\DATOS
-   intervalo.polling.ms=2000
-   db.url=jdbc:mysql://localhost:3306/logimarket
-   db.usuario=root
-   db.password=tu_password
-   ```
-
-4. Ejecutar:
-   ```bash
-   cd VendiaUpdater
-   mvn compile exec:java
-   ```
-
-El daemon queda vigilando la carpeta. Presionar **ENTER** para detenerlo.
-
----
-
-### VendiaSender
-
-```bash
-cd VendiaSender
-mvn clean compile
-mvn javafx:run
-```
-
-En la interfaz:
-1. Seleccionar el archivo `ventas.dat` generado por VendiaApp
-2. Seleccionar la misma carpeta compartida `DATOS\` que vigila VendiaUpdater
-3. Hacer clic en **"Enviar al Servidor"**
-
----
-
-## Stack tecnológico
-
-| Componente    | Tecnología                    |
-|---------------|-------------------------------|
-| VendiaApp     | Java 21, JavaFX 21, Maven     |
-| VendiaSender  | Java 21, JavaFX 21, Maven     |
-| VendiaUpdater | Java 21, MySQL 8, Maven       |
-| Persistencia  | Archivos binarios + MySQL 8   |
-| Comunicación  | Archivos en carpeta compartida (DataStream binario + ACK de texto) |

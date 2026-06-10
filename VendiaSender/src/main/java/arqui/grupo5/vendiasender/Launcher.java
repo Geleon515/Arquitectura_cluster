@@ -1,7 +1,7 @@
-package arqui.grupo5.ui;
+package arqui.grupo5.vendiasender;
 
 public class Launcher {
     public static void main(String[] args) {
-        VendiaApp.launch(VendiaApp.class, args);
+        VendiaSender.main(args);
     }
 }

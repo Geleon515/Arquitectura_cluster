@@ -1,7 +1,7 @@
-package arqui.grupo5.ui;
+package arqui.grupo5.dw;
 
 public class Launcher {
     public static void main(String[] args) {
-        VendiaApp.launch(VendiaApp.class, args);
+        DataWarehouseApp.main(args);
     }
 }

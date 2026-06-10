@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            xmlns="http://javafx.com/javafx/21"
+            fx:controller="arqui.grupo5.dw.controller.DWController"
+            prefWidth="650" prefHeight="520">
+
+    <!-- Cabecera -->
+    <top>
+        <VBox style="-fx-background-color: #1a237e; -fx-padding: 14 16 14 16;">
+            <Label text="GenerarDatawareHouse — LogiMarket Peru S.A."
+                   style="-fx-text-fill: white; -fx-font-size: 16; -fx-font-weight: bold;"/>
+            <Label text="ETL: Extraccion, Transformacion y Carga hacia el DataWarehouse"
+                   style="-fx-text-fill: #90caf9; -fx-font-size: 12;"/>
+        </VBox>
+    </top>
+
+    <!-- Contenido principal: config + accion + log todo en center para que el log crezca -->
+    <center>
+        <VBox spacing="10" style="-fx-padding: 12;">
+
+            <TitledPane text="Servidor de BD Operacional (Origen)" collapsible="false" maxHeight="-Infinity">
+                <VBox spacing="8">
+                    <padding><Insets top="8" right="8" bottom="8" left="8"/></padding>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label text="URL:" minWidth="80" style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="txtBdUrl" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label text="Usuario:" minWidth="80" style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="txtBdUser" prefWidth="160"/>
+                        <Label text="Contrasena:" style="-fx-font-weight: bold;"/>
+                        <PasswordField fx:id="txtBdPass" prefWidth="160"/>
+                    </HBox>
+                </VBox>
+            </TitledPane>
+
+            <TitledPane text="Servidor de DataWarehouse (Destino)" collapsible="false" maxHeight="-Infinity">
+                <VBox spacing="8">
+                    <padding><Insets top="8" right="8" bottom="8" left="8"/></padding>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label text="URL:" minWidth="80" style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="txtDwUrl" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label text="Usuario:" minWidth="80" style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="txtDwUser" prefWidth="160"/>
+                        <Label text="Contrasena:" style="-fx-font-weight: bold;"/>
+                        <PasswordField fx:id="txtDwPass" prefWidth="160"/>
+                    </HBox>
+                </VBox>
+            </TitledPane>
+
+            <!-- Accion -->
+            <HBox spacing="14" alignment="CENTER_LEFT"
+                  style="-fx-padding: 4 0 4 0;">
+                <Button fx:id="btnGenerar"
+                        text="Generar DataWarehouse"
+                        onAction="#onGenerarDW"
+                        style="-fx-background-color: #1565c0; -fx-text-fill: white;
+                               -fx-font-weight: bold; -fx-padding: 7 22; -fx-font-size: 13;"/>
+                <Label fx:id="lblEstado"
+                       text="Esperando..."
+                       style="-fx-text-fill: #757575; -fx-font-style: italic;"/>
+            </HBox>
+
+            <!-- Log expandible -->
+            <Label text="Registro de actividad:" style="-fx-font-weight: bold;"/>
+            <TextArea fx:id="txtLog"
+                      editable="false"
+                      VBox.vgrow="ALWAYS"
+                      style="-fx-font-family: 'Courier New', monospace; -fx-font-size: 11;"/>
+
+        </VBox>
+    </center>
+
+</BorderPane>

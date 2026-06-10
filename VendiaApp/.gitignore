@@ -1,2 +1,13 @@
-.target/
+# Carpetas de compilación y salida (sin el punto inicial)
+target/
+output/
+
+# Archivos de configuración de IntelliJ IDEA (este sí lleva punto)
 .idea/
+
+# Si se generan archivos temporales de datos que no quieres subir
+*.dat
+*.idx
+
+# Archivo temporal generado por el maven-shade-plugin
+dependency-reduced-pom.xml

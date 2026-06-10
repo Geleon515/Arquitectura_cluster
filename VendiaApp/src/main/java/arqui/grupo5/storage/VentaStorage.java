@@ -22,7 +22,6 @@ public class VentaStorage {
     private static final String ARCHIVO_DAT = "ventas.dat";
     private static final String ARCHIVO_IDX = "ventas.idx";
 
-    // Índice en memoria: idVenta → posición en bytes dentro de ventas.dat
     // Se carga al iniciar y se persiste en ventas.idx
     private final TreeMap<String, Long> indice = new TreeMap<>();
 

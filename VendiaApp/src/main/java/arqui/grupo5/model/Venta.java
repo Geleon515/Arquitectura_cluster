@@ -2,15 +2,8 @@ package arqui.grupo5.model;
 
 /**
  * Representa un registro de venta con tamaño fijo para almacenamiento binario.
- *
- * Estructura del registro en ventas.dat (tamaño fijo = 97 bytes):
- * ┌─────────────┬──────────────┬─────────────┬────────────┬──────────┐
- * │ id_venta    │ id_vendedor  │ fecha       │ monto      │ estado   │
- * │ 20 chars    │ 20 chars     │ 20 chars    │ 8 bytes    │ 1 char   │
- * │ (40 bytes)  │ (40 bytes)   │ (40 bytes)  │ (double)   │ (2 bytes)│
- * └─────────────┴──────────────┴─────────────┴────────────┴──────────┘
+
  * Total: 40 + 40 + 40 + 8 + 2 = 130 bytes por registro
- *
  * Estado: 'P' = Pendiente (no enviado), 'E' = Enviado al servidor
  */
 public class Venta {
@@ -20,8 +13,6 @@ public class Venta {
     public static final int TAM_ID_VENDEDOR = 20;
     public static final int TAM_FECHA       = 20;
 
-    // Tamaño total del registro en bytes:
-    // (20+20+20) chars * 2 bytes/char + 8 bytes (double) + 2 bytes (char estado)
     public static final int TAM_REGISTRO = (TAM_ID_VENTA + TAM_ID_VENDEDOR + TAM_FECHA) * 2 + 8 + 2;
 
     private String idVenta;      // Identificador único de la venta

@@ -40,17 +40,19 @@ public class MirrorController {
     @Value("${mirror.datasource.password}")
     private String mirrorPass;
 
-    // POST /api/mirror/sincronizar — copia todos los registros activos al Mirror
+    // POST /api/mirror/sincronizar — replica todos los registros al Mirror (incluye eliminados para propagar estado X)
     @PostMapping("/sincronizar")
     public Map<String, Object> sincronizar() {
         try {
             List<Object[]> ventas = leerVentasPrincipales();
             int copiadas          = escribirEnMirror(ventas);
+            long activos          = ventas.stream().filter(v -> !"X".equals(v[4])).count();
 
             return Map.of(
                 "estado",             "OK",
                 "registrosLeidos",    ventas.size(),
                 "registrosCopiados",  copiadas,
+                "registrosActivos",   activos,
                 "servidorOrigen",     mainUrl,
                 "servidorMirror",     mirrorUrl,
                 "timestamp",          LocalDateTime.now().format(TS_FMT)
@@ -96,11 +98,12 @@ public class MirrorController {
         try (Connection c  = DriverManager.getConnection(mainUrl, mainUser, mainPass);
              Statement  st = c.createStatement();
              ResultSet  rs = st.executeQuery(
-                 "SELECT id_venta, id_vendedor, fecha, monto_total, estado FROM ventas WHERE estado != 'X'")) {
+                 "SELECT id_venta, id_vendedor, id_producto, fecha, monto_total, estado FROM ventas")) {
             while (rs.next()) {
                 ventas.add(new Object[]{
                     rs.getString("id_venta"),
                     rs.getString("id_vendedor"),
+                    rs.getString("id_producto"),
                     rs.getString("fecha"),
                     rs.getDouble("monto_total"),
                     rs.getString("estado")
@@ -120,19 +123,22 @@ public class MirrorController {
                     CREATE TABLE IF NOT EXISTS ventas (
                         id_venta    VARCHAR(20) PRIMARY KEY,
                         id_vendedor VARCHAR(20) NOT NULL,
+                        id_producto VARCHAR(20),
                         fecha       VARCHAR(20) NOT NULL,
                         monto_total DOUBLE      NOT NULL,
                         estado      CHAR(1)     NOT NULL,
                         recibido_en TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
                     )
                 """);
+                try { st.execute("ALTER TABLE ventas ADD COLUMN id_producto VARCHAR(20)"); } catch (SQLException ignored) {}
             }
 
             String sql = """
-                INSERT INTO ventas (id_venta, id_vendedor, fecha, monto_total, estado)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO ventas (id_venta, id_vendedor, id_producto, fecha, monto_total, estado)
+                VALUES (?, ?, ?, ?, ?, ?)
                 AS nuevos
                 ON DUPLICATE KEY UPDATE
+                    id_producto = nuevos.id_producto,
                     monto_total = nuevos.monto_total,
                     estado      = nuevos.estado
                 """;
@@ -144,8 +150,9 @@ public class MirrorController {
                     ps.setString(1, (String) v[0]);
                     ps.setString(2, (String) v[1]);
                     ps.setString(3, (String) v[2]);
-                    ps.setDouble(4, (Double) v[3]);
-                    ps.setString(5, (String) v[4]);
+                    ps.setString(4, (String) v[3]);
+                    ps.setDouble(5, (Double) v[4]);
+                    ps.setString(6, (String) v[5]);
                     ps.addBatch();
                 }
                 int[] resultados = ps.executeBatch();

@@ -82,11 +82,7 @@ public class CreateCrossTabApp extends Application {
         t.setFont(Font.font("Segoe UI", FontWeight.BOLD, 20));
         t.setTextFill(Color.web("#818cf8"));
 
-        Label s = new Label("Generador de Cubos OLAP — Arquitectura DataWarehouse");
-        s.setFont(Font.font("Segoe UI", 12));
-        s.setTextFill(Color.web("#64748b"));
-
-        textos.getChildren().addAll(t, s);
+        textos.getChildren().addAll(t);
         h.getChildren().addAll(accent, textos);
         return h;
     }

@@ -89,11 +89,7 @@ public class ViewCrossTabApp extends Application {
         t.setFont(Font.font("Segoe UI", FontWeight.BOLD, 20));
         t.setTextFill(Color.web("#c084fc"));
 
-        Label s = new Label("Cubo OLAP 3D: Vendedor x Producto x Trimestre — LogiMarket Peru S.A.");
-        s.setFont(Font.font("Segoe UI", 12));
-        s.setTextFill(Color.web("#64748b"));
-
-        textos.getChildren().addAll(t, s);
+        textos.getChildren().addAll(t);
         h.getChildren().addAll(accent, textos);
         return h;
     }
@@ -419,9 +415,6 @@ public class ViewCrossTabApp extends Application {
             ly += 50;
         }
 
-        gc.setFill(Color.web("#e2e8f0"));
-        gc.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
-        gc.fillText("Cubo OLAP — Distribucion Trimestral", 40, 28);
     }
 
     private void dibujarPieVacio() {

@@ -18,7 +18,7 @@ public class OperacionalRepository {
     }
 
     public List<VentaOperacional> leerVentasEnviadas() throws SQLException {
-        String sql = "SELECT id_venta, id_vendedor, fecha, monto_total FROM ventas WHERE estado != 'X'";
+        String sql = "SELECT id_venta, id_vendedor, id_producto, fecha, monto_total FROM ventas WHERE estado != 'X'";
         List<VentaOperacional> lista = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -26,6 +26,7 @@ public class OperacionalRepository {
                 lista.add(new VentaOperacional(
                     rs.getString("id_venta"),
                     rs.getString("id_vendedor"),
+                    rs.getString("id_producto") != null ? rs.getString("id_producto").trim() : "P000",
                     rs.getString("fecha").trim(),
                     rs.getDouble("monto_total")
                 ));

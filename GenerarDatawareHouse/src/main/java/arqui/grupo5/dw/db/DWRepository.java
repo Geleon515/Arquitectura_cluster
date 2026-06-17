@@ -9,7 +9,7 @@ public class DWRepository implements AutoCloseable {
 
     private final Connection conn;
 
-    private record AggKey(String idVendedor, String idFecha) {}
+    private record AggKey(String idVendedor, String idProducto, String idFecha) {}
 
     public DWRepository(String url, String user, String password) throws SQLException {
         crearSchemaSiNoExiste(url, user, password);
@@ -34,6 +34,12 @@ public class DWRepository implements AutoCloseable {
                 )
                 """);
             st.execute("""
+                CREATE TABLE IF NOT EXISTS dim_producto (
+                    id_producto  VARCHAR(20) PRIMARY KEY,
+                    nombre       VARCHAR(60) NOT NULL
+                )
+                """);
+            st.execute("""
                 CREATE TABLE IF NOT EXISTS dim_fecha (
                     id_fecha  VARCHAR(7) PRIMARY KEY,
                     mes       INT        NOT NULL,
@@ -44,10 +50,11 @@ public class DWRepository implements AutoCloseable {
             st.execute("""
                 CREATE TABLE IF NOT EXISTS fact_ventas (
                     id_vendedor VARCHAR(20) NOT NULL,
+                    id_producto VARCHAR(20) NOT NULL DEFAULT 'P000',
                     id_fecha    VARCHAR(7)  NOT NULL,
                     monto_total DOUBLE      NOT NULL DEFAULT 0,
                     cantidad    INT         NOT NULL DEFAULT 0,
-                    PRIMARY KEY (id_vendedor, id_fecha),
+                    PRIMARY KEY (id_vendedor, id_producto, id_fecha),
                     FOREIGN KEY (id_vendedor) REFERENCES dim_vendedor(id_vendedor),
                     FOREIGN KEY (id_fecha)    REFERENCES dim_fecha(id_fecha)
                 )
@@ -57,14 +64,19 @@ public class DWRepository implements AutoCloseable {
 
     public int cargarDW(List<VentaOperacional> ventas) throws SQLException {
         Set<String>           vendedores = new LinkedHashSet<>();
+        Set<String>           productos  = new LinkedHashSet<>();
         Set<String>           fechas     = new LinkedHashSet<>();
         Map<AggKey, double[]> agg        = new LinkedHashMap<>();
 
         for (VentaOperacional v : ventas) {
-            String idFecha = parseFecha(v.getFecha());
+            String idFecha    = parseFecha(v.getFecha());
+            String idProducto = v.getIdProducto() != null && !v.getIdProducto().isBlank()
+                                ? v.getIdProducto() : "P000";
             vendedores.add(v.getIdVendedor());
+            productos.add(idProducto);
             fechas.add(idFecha);
-            double[] arr = agg.computeIfAbsent(new AggKey(v.getIdVendedor(), idFecha), k -> new double[2]);
+            double[] arr = agg.computeIfAbsent(
+                new AggKey(v.getIdVendedor(), idProducto, idFecha), k -> new double[2]);
             arr[0] += v.getMontoTotal();
             arr[1]++;
         }
@@ -73,8 +85,15 @@ public class DWRepository implements AutoCloseable {
         try {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT IGNORE INTO dim_vendedor (id_vendedor) VALUES (?)")) {
-                for (String v : vendedores) {
-                    ps.setString(1, v);
+                for (String v : vendedores) { ps.setString(1, v); ps.addBatch(); }
+                ps.executeBatch();
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT IGNORE INTO dim_producto (id_producto, nombre) VALUES (?, ?)")) {
+                for (String p : productos) {
+                    ps.setString(1, p);
+                    ps.setString(2, nombreProducto(p));
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -94,14 +113,15 @@ public class DWRepository implements AutoCloseable {
             }
 
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO fact_ventas (id_vendedor, id_fecha, monto_total, cantidad) " +
-                    "VALUES (?, ?, ?, ?) AS nuevos " +
+                    "INSERT INTO fact_ventas (id_vendedor, id_producto, id_fecha, monto_total, cantidad) " +
+                    "VALUES (?, ?, ?, ?, ?) AS nuevos " +
                     "ON DUPLICATE KEY UPDATE monto_total = nuevos.monto_total, cantidad = nuevos.cantidad")) {
                 for (Map.Entry<AggKey, double[]> entry : agg.entrySet()) {
                     ps.setString(1, entry.getKey().idVendedor());
-                    ps.setString(2, entry.getKey().idFecha());
-                    ps.setDouble(3, entry.getValue()[0]);
-                    ps.setInt(4,    (int) entry.getValue()[1]);
+                    ps.setString(2, entry.getKey().idProducto());
+                    ps.setString(3, entry.getKey().idFecha());
+                    ps.setDouble(4, entry.getValue()[0]);
+                    ps.setInt(5,    (int) entry.getValue()[1]);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -117,7 +137,18 @@ public class DWRepository implements AutoCloseable {
         }
     }
 
-    // fecha formato "yyyy-MM-dd HH:mm"  →  id_fecha "yyyy-MM"
+    private String nombreProducto(String id) {
+        return switch (id) {
+            case "P001" -> "Laptop";
+            case "P002" -> "Monitor";
+            case "P003" -> "Teclado";
+            case "P004" -> "Mouse";
+            case "P005" -> "Impresora";
+            case "P006" -> "Auriculares";
+            default     -> id;
+        };
+    }
+
     private String parseFecha(String fecha) {
         if (fecha == null || fecha.length() < 7) return "0000-00";
         return fecha.substring(0, 7);

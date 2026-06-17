@@ -1,4 +1,14 @@
-IMPLEMENTACION_V2.md
+# Archivos de build Maven — nunca subir al repo
+**/target/
 
-hola github, ignorame
-Hola github, ignorame de nuevo
+# Configuracion local de IntelliJ IDEA
+.idea/
+*.iml
+
+# Archivos de datos locales
+*.dat
+*.idx
+
+# Variables de entorno
+*.env
+*.properties.local

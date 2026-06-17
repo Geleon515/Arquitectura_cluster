@@ -137,10 +137,11 @@ public class FolderWatcher {
             for (long i = 0; i < totalRegistros; i++) {
                 String idVenta    = leerChars(in, Venta.ID_LEN).trim();
                 String idVendedor = leerChars(in, Venta.VENDEDOR_LEN).trim();
+                String idProducto = leerChars(in, Venta.PRODUCTO_LEN).trim();
                 String fecha      = leerChars(in, Venta.FECHA_LEN).trim();
                 double monto      = in.readDouble();
                 char   estado     = in.readChar();
-                ventas.add(new Venta(idVenta, idVendedor, fecha, monto, estado));
+                ventas.add(new Venta(idVenta, idVendedor, idProducto, fecha, monto, estado));
             }
         }
         return ventas;

@@ -31,10 +31,12 @@ public class VentaController {
         return LocalDateTime.now().format(FORMATO_FECHA);
     }
 
-    public Venta registrarVenta(String idVendedor, double monto) throws IOException {
-        // Validaciones de negocio
+    public Venta registrarVenta(String idVendedor, String idProducto, double monto) throws IOException {
         if (idVendedor == null || idVendedor.isBlank()) {
             throw new IllegalArgumentException("El ID del vendedor no puede estar vacío.");
+        }
+        if (idProducto == null || idProducto.isBlank()) {
+            throw new IllegalArgumentException("El ID del producto no puede estar vacío.");
         }
         if (monto <= 0) {
             throw new IllegalArgumentException("El monto debe ser mayor a cero.");
@@ -46,6 +48,7 @@ public class VentaController {
         Venta venta = new Venta(
                 generarIdVenta(),
                 idVendedor.trim().toUpperCase(),
+                idProducto.trim().toUpperCase(),
                 getFechaActual(),
                 monto
         );

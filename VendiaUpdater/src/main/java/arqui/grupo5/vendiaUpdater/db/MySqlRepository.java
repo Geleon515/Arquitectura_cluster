@@ -19,6 +19,7 @@ public class MySqlRepository implements AutoCloseable {
             CREATE TABLE IF NOT EXISTS ventas (
                 id_venta     VARCHAR(20) PRIMARY KEY,
                 id_vendedor  VARCHAR(20) NOT NULL,
+                id_producto  VARCHAR(20) NOT NULL DEFAULT 'P000',
                 fecha        VARCHAR(20) NOT NULL,
                 monto_total  DOUBLE      NOT NULL,
                 estado       CHAR(1)     NOT NULL,
@@ -27,20 +28,22 @@ public class MySqlRepository implements AutoCloseable {
             """;
         try (Statement st = conn.createStatement()) {
             st.execute(sql);
-        }
+            st.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS id_producto VARCHAR(20) NOT NULL DEFAULT 'P000'");
+        } catch (SQLException ignored) {}
     }
 
     public void insertarVenta(Venta v) throws SQLException {
         String sql = """
-            INSERT IGNORE INTO ventas (id_venta, id_vendedor, fecha, monto_total, estado)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT IGNORE INTO ventas (id_venta, id_vendedor, id_producto, fecha, monto_total, estado)
+            VALUES (?, ?, ?, ?, ?, ?)
             """;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, v.getIdVenta());
             ps.setString(2, v.getIdVendedor());
-            ps.setString(3, v.getFecha());
-            ps.setDouble(4, v.getMontoTotal());
-            ps.setString(5, String.valueOf(v.getEstado()));
+            ps.setString(3, v.getIdProducto() != null ? v.getIdProducto() : "P000");
+            ps.setString(4, v.getFecha());
+            ps.setDouble(5, v.getMontoTotal());
+            ps.setString(6, String.valueOf(v.getEstado()));
             ps.executeUpdate();
         }
     }
@@ -49,8 +52,8 @@ public class MySqlRepository implements AutoCloseable {
         if (ventas.isEmpty()) return;
 
         String sql = """
-            INSERT IGNORE INTO ventas (id_venta, id_vendedor, fecha, monto_total, estado)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT IGNORE INTO ventas (id_venta, id_vendedor, id_producto, fecha, monto_total, estado)
+            VALUES (?, ?, ?, ?, ?, ?)
             """;
         boolean autoCommitPrevio = conn.getAutoCommit();
         conn.setAutoCommit(false);
@@ -58,9 +61,10 @@ public class MySqlRepository implements AutoCloseable {
             for (Venta v : ventas) {
                 ps.setString(1, v.getIdVenta());
                 ps.setString(2, v.getIdVendedor());
-                ps.setString(3, v.getFecha());
-                ps.setDouble(4, v.getMontoTotal());
-                ps.setString(5, String.valueOf(v.getEstado()));
+                ps.setString(3, v.getIdProducto() != null ? v.getIdProducto() : "P000");
+                ps.setString(4, v.getFecha());
+                ps.setDouble(5, v.getMontoTotal());
+                ps.setString(6, String.valueOf(v.getEstado()));
                 ps.addBatch();
             }
             ps.executeBatch();

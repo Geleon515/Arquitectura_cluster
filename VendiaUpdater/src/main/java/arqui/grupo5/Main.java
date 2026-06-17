@@ -15,11 +15,11 @@ public class Main {
     public static void main(String[] args) throws Exception {
         Properties cfg = cargarConfig("updater.properties");
 
-        String carpetaDatos    = cfg.getProperty("carpeta.datos",         "C:\\Users\\USER\\Desktop\\DATOS");
+        String carpetaDatos    = cfg.getProperty("carpeta.datos",         "C:\\Users\\ADMIN\\Desktop\\DATOS");
         long   intervaloMs     = Long.parseLong(cfg.getProperty("intervalo.polling.ms", "2000"));
         String dbUrl           = cfg.getProperty("db.url",                "jdbc:mysql://localhost:3306/logimarket");
         String dbUser          = cfg.getProperty("db.usuario",            "root");
-        String dbPass          = cfg.getProperty("db.password",           "");
+        String dbPass          = cfg.getProperty("db.password",           "tu_password");
 
         System.out.println("=================================================");
         System.out.println("  VendiaUpdater — LogiMarket Peru S.A.");

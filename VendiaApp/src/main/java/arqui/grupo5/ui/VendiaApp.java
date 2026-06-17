@@ -24,9 +24,10 @@ public class VendiaApp extends Application {
     private TableView<VentaFX> tabla;
     private ObservableList<VentaFX> datosTabla;
 
-    private TextField txtIdVendedor;
-    private TextField txtMonto;
-    private TextField txtBuscarId;
+    private TextField     txtIdVendedor;
+    private ComboBox<String> cmbProducto;
+    private TextField     txtMonto;
+    private TextField     txtBuscarId;
     private TextField txtNuevoMonto;
     private Label     lblStatus;
     private Label     lblContador;
@@ -47,6 +48,7 @@ public class VendiaApp extends Application {
     public static class VentaFX {
         private final StringProperty idVenta    = new SimpleStringProperty();
         private final StringProperty idVendedor = new SimpleStringProperty();
+        private final StringProperty idProducto = new SimpleStringProperty();
         private final StringProperty fecha      = new SimpleStringProperty();
         private final DoubleProperty monto      = new SimpleDoubleProperty();
         private final StringProperty estado     = new SimpleStringProperty();
@@ -54,6 +56,7 @@ public class VendiaApp extends Application {
         public VentaFX(Venta v) {
             idVenta.set(v.getIdVenta());
             idVendedor.set(v.getIdVendedor());
+            idProducto.set(v.getIdProducto() != null ? v.getIdProducto() : "");
             fecha.set(v.getFecha());
             monto.set(v.getMontoTotal());
             estado.set(estadoTexto(v.getEstado()));
@@ -70,6 +73,7 @@ public class VendiaApp extends Application {
 
         public StringProperty idVentaProperty()    { return idVenta; }
         public StringProperty idVendedorProperty() { return idVendedor; }
+        public StringProperty idProductoProperty() { return idProducto; }
         public StringProperty fechaProperty()      { return fecha; }
         public DoubleProperty montoProperty()      { return monto; }
         public StringProperty estadoProperty()     { return estado; }
@@ -195,9 +199,27 @@ public class VendiaApp extends Application {
     private VBox seccionRegistrar() {
         VBox card = crearCard();
 
-        txtIdVendedor = crearTextField("Ej: VEN-001");
+        txtIdVendedor = crearTextField("Ej: V001");
         txtMonto      = crearTextField("Ej: 125.50");
         txtMonto.setOnAction(e -> accionRegistrar());
+
+        cmbProducto = new ComboBox<>();
+        cmbProducto.setMaxWidth(Double.MAX_VALUE);
+        cmbProducto.getItems().addAll(
+            "P001 - Laptop",
+            "P002 - Monitor",
+            "P003 - Teclado",
+            "P004 - Mouse",
+            "P005 - Impresora",
+            "P006 - Auriculares"
+        );
+        cmbProducto.setValue("P001 - Laptop");
+        cmbProducto.setStyle(
+            "-fx-background-color: " + BG_SURFACE + ";" +
+            "-fx-text-fill: " + TEXT_PRI + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 13;"
+        );
 
         Button btnRegistrar = crearBoton("Registrar Venta", "#818cf8", "#ffffff");
         btnRegistrar.setOnAction(e -> accionRegistrar());
@@ -205,6 +227,7 @@ public class VendiaApp extends Application {
         card.getChildren().addAll(
                 tituloSeccion("Nueva Venta"),
                 etiqueta("ID Vendedor"), txtIdVendedor,
+                etiqueta("Producto"), cmbProducto,
                 etiqueta("Monto (S/.)"), txtMonto,
                 btnRegistrar
         );
@@ -298,11 +321,12 @@ public class VendiaApp extends Application {
         VBox.setVgrow(tabla, Priority.ALWAYS);
 
         tabla.getColumns().addAll(
-                columna("ID Venta",   "idVenta",    200),
-                columna("Vendedor",   "idVendedor",  90),
-                columna("Fecha",      "fecha",      140),
-                columnaDouble("Monto","monto",      110),
-                columnaEstado("Estado","estado",    110)
+                columna("ID Venta",   "idVenta",    180),
+                columna("Vendedor",   "idVendedor",  80),
+                columna("Producto",   "idProducto",  80),
+                columna("Fecha",      "fecha",      130),
+                columnaDouble("Monto","monto",      100),
+                columnaEstado("Estado","estado",    100)
         );
 
         datosTabla = FXCollections.observableArrayList();
@@ -351,17 +375,19 @@ public class VendiaApp extends Application {
     // ─── Acciones CRUD ────────────────────────────────────────────────────
 
     private void accionRegistrar() {
-        String vendedor = txtIdVendedor.getText();
-        String montoStr = txtMonto.getText();
+        String vendedor  = txtIdVendedor.getText();
+        String producSel = cmbProducto.getValue();
+        String montoStr  = txtMonto.getText();
 
-        if (vendedor.isBlank() || montoStr.isBlank()) {
+        if (vendedor.isBlank() || producSel == null || montoStr.isBlank()) {
             setStatus("Complete todos los campos.", "#d97706");
             return;
         }
 
+        String idProducto = producSel.split(" - ")[0].trim();
         try {
             double monto = Double.parseDouble(montoStr.replace(",", "."));
-            Venta nueva = controller.registrarVenta(vendedor, monto);
+            Venta nueva = controller.registrarVenta(vendedor, idProducto, monto);
             setStatus("Venta registrada: " + nueva.getIdVenta(), "#059669");
             txtIdVendedor.clear();
             txtMonto.clear();

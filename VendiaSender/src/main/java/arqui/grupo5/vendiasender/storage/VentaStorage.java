@@ -59,16 +59,18 @@ public class VentaStorage {
     private Venta leerRegistro(RandomAccessFile raf) throws IOException {
         String idVenta    = leerString(raf, Venta.ID_LEN);
         String idVendedor = leerString(raf, Venta.VENDEDOR_LEN);
+        String idProducto = leerString(raf, Venta.PRODUCTO_LEN);
         String fecha      = leerString(raf, Venta.FECHA_LEN);
         double monto      = raf.readDouble();
         char   estado     = raf.readChar();
-        return new Venta(idVenta, idVendedor, fecha, monto, estado);
+        return new Venta(idVenta, idVendedor, idProducto, fecha, monto, estado);
     }
 
     private void escribirRegistro(RandomAccessFile raf, Venta v) throws IOException {
-        writeChars(raf, v.getIdVenta(),    Venta.ID_LEN);
-        writeChars(raf, v.getIdVendedor(), Venta.VENDEDOR_LEN);
-        writeChars(raf, v.getFecha(),      Venta.FECHA_LEN);
+        writeChars(raf, v.getIdVenta(),     Venta.ID_LEN);
+        writeChars(raf, v.getIdVendedor(),  Venta.VENDEDOR_LEN);
+        writeChars(raf, v.getIdProducto(),  Venta.PRODUCTO_LEN);
+        writeChars(raf, v.getFecha(),       Venta.FECHA_LEN);
         raf.writeDouble(v.getMontoTotal());
         raf.writeChar(v.getEstado());
     }

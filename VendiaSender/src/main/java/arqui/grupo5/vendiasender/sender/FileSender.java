@@ -62,9 +62,10 @@ public class FileSender {
         try (DataOutputStream out = new DataOutputStream(
                 new BufferedOutputStream(new FileOutputStream(datFile)))) {
             for (Venta v : ventas) {
-                writeChars(out, v.getIdVenta(),    Venta.ID_LEN);
-                writeChars(out, v.getIdVendedor(), Venta.VENDEDOR_LEN);
-                writeChars(out, v.getFecha(),      Venta.FECHA_LEN);
+                writeChars(out, v.getIdVenta(),     Venta.ID_LEN);
+                writeChars(out, v.getIdVendedor(),  Venta.VENDEDOR_LEN);
+                writeChars(out, v.getIdProducto(),  Venta.PRODUCTO_LEN);
+                writeChars(out, v.getFecha(),       Venta.FECHA_LEN);
                 out.writeDouble(v.getMontoTotal());
                 out.writeChar(v.getEstado());
             }

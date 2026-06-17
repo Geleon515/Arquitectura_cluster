@@ -180,6 +180,7 @@ public class VentaStorage {
     private void escribirRegistro(RandomAccessFile raf, Venta v) throws IOException {
         raf.writeChars(Venta.padOrTruncate(v.getIdVenta(),    Venta.TAM_ID_VENTA));
         raf.writeChars(Venta.padOrTruncate(v.getIdVendedor(), Venta.TAM_ID_VENDEDOR));
+        raf.writeChars(Venta.padOrTruncate(v.getIdProducto() != null ? v.getIdProducto() : "P000", Venta.TAM_ID_PRODUCTO));
         raf.writeChars(Venta.padOrTruncate(v.getFecha(),      Venta.TAM_FECHA));
         raf.writeDouble(v.getMontoTotal());
         raf.writeChar(v.getEstado());
@@ -195,11 +196,15 @@ public class VentaStorage {
         char[] bufVen = new char[Venta.TAM_ID_VENDEDOR];
         for (int i = 0; i < Venta.TAM_ID_VENDEDOR; i++) bufVen[i] = raf.readChar();
 
+        char[] bufProd = new char[Venta.TAM_ID_PRODUCTO];
+        for (int i = 0; i < Venta.TAM_ID_PRODUCTO; i++) bufProd[i] = raf.readChar();
+
         char[] bufFec = new char[Venta.TAM_FECHA];
         for (int i = 0; i < Venta.TAM_FECHA;       i++) bufFec[i] = raf.readChar();
 
         v.setIdVenta(    new String(bufId).trim());
         v.setIdVendedor( new String(bufVen).trim());
+        v.setIdProducto( new String(bufProd).trim());
         v.setFecha(      new String(bufFec).trim());
         v.setMontoTotal( raf.readDouble());
         v.setEstado(     raf.readChar());

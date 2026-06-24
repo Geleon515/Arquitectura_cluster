@@ -40,7 +40,7 @@ public class MirrorController {
     @Value("${mirror.datasource.password}")
     private String mirrorPass;
 
-    // POST /api/mirror/sincronizar — replica todos los registros al Mirror (incluye eliminados para propagar estado X)
+    // POST /api/mirror/sincronizar — replica todos los registros al Mirror
     @PostMapping("/sincronizar")
     public Map<String, Object> sincronizar() {
         try {

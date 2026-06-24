@@ -12,3 +12,8 @@
 # Variables de entorno
 *.env
 *.properties.local
+
+# Frontend Node
+node_modules/
+**/node_modules/
+VendiaWeb/frontend/dist/

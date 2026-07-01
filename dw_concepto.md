@@ -171,7 +171,7 @@ Tu `dim_fecha` tiene los tres niveles.
 
 **CrossTab / Pivot** — tabla donde las filas son una dimensión y las columnas son otra.
 Ejemplo: filas = vendedores, columnas = meses, celdas = monto total.
-El `CreateCrossTab.EXE` opcional del proyecto generaría esto.
+El módulo `CreateCrossTab` del proyecto implementa exactamente esto: genera la tabla `crosstab_ventas` con filas = vendedores y columnas = Q1/Q2/Q3/Q4. `ViewCrossTab` la visualiza con tabla pivot y gráficos.
 
 ---
 

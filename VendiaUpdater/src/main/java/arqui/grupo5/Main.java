@@ -1,5 +1,6 @@
 package arqui.grupo5;
 
+import arqui.grupo5.plugin.PluginLoader;
 import arqui.grupo5.vendiaUpdater.watcher.FolderWatcher;
 
 import java.io.FileInputStream;
@@ -31,8 +32,11 @@ public class Main {
         System.out.println("=================================================");
         System.out.println();
 
+        PluginLoader plugins = new PluginLoader(Main::log);
+        plugins.cargarDesde("plugins");
+
         FolderWatcher watcher = new FolderWatcher(
-            carpetaDatos, intervaloMs, dbUrl, dbUser, dbPass, Main::log);
+            carpetaDatos, intervaloMs, dbUrl, dbUser, dbPass, Main::log, plugins);
         watcher.iniciar();
 
         System.out.println("Daemon activo. Presione ENTER para detener.");

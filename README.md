@@ -18,8 +18,8 @@ análisis OLAP. Implementa el patrón **MVC** en todas sus capas:
 | Módulo | Capa | Descripción |
 |--------|------|-------------|
 | `VendiaApp` | Cliente | App de escritorio JavaFX para cajeros. Almacena ventas en archivos binarios locales |
-| `VendiaSender` | FTP | Envía los archivos `.dat` al servidor por carpeta compartida |
-| `VendiaUpdater` | Datos | Daemon que detecta archivos `.dat` e inserta en MySQL |
+| `VendiaSender` | Transferencia | Envía los archivos `.dat` al servidor por carpeta compartida |
+| `VendiaUpdater` | Servidor BD | Daemon que detecta `.dat`, inserta en MySQL y ejecuta plugins |
 | `VendiaWeb` | Aplicación Web | Servidor web Spring Boot con API REST y frontend React |
 | `GenerarDatawareHouse` | DataWarehouse | App JavaFX que realiza el ETL desde el Mirror hacia el DW |
 | `CreateCrossTab` | OLAP | App JavaFX que genera el cubo OLAP (tabla cruzada por trimestre) |
@@ -27,17 +27,20 @@ análisis OLAP. Implementa el patrón **MVC** en todas sus capas:
 
 ---
 
-## Orden de uso
+## Orden de ejecución
 
 ```
 1. VendiaUpdater        →  levantar primero (daemon en el Servidor de BD)
 2. VendiaWeb            →  levantar en el Servidor de Aplicaciones
 3. VendiaApp            →  cajero usa durante todo el turno
 4. VendiaSender         →  cajero usa al cerrar el turno
-5. GenerarDatawareHouse →  administrador ejecuta para actualizar el DW
-6. CreateCrossTab       →  administrador genera el cubo OLAP
-7. ViewCrossTab         →  administrador visualiza análisis gerencial
+5. VendiaWeb            →  administrador sincroniza al Mirror desde la interfaz web
+6. GenerarDatawareHouse →  administrador ejecuta para cargar el DW
+7. CreateCrossTab       →  administrador genera el cubo OLAP
+8. ViewCrossTab         →  administrador visualiza análisis gerencial
 ```
+
+> Los pasos 6 y 7 se pueden automatizar con `ejecutar_etl.bat` (ver sección ETL).
 
 ---
 
@@ -57,7 +60,7 @@ CREATE DATABASE logimarket_dw;
 
 ## Configuración de contraseñas
 
-Antes de ejecutar cualquier módulo, reemplazar `tu_password` con la contraseña real de MySQL en los siguientes archivos:
+En todos los archivos de configuración, reemplazar `AQUI_VA_TU_CONTRASENA` con la contraseña real de MySQL:
 
 | Archivo | Campo |
 |---------|-------|
@@ -73,6 +76,7 @@ Antes de ejecutar cualquier módulo, reemplazar `tu_password` con la contraseña
 ## 1. VendiaUpdater — Daemon en el Servidor de BD
 
 Debe estar corriendo **antes** de que cualquier sede intente enviar ventas.
+Al iniciar, carga automáticamente los plugins de la carpeta `plugins/`.
 
 **Requisitos previos:**
 1. La base de datos `logimarket` debe existir (ver arriba).
@@ -84,7 +88,7 @@ carpeta.datos=C:\\Users\\ADMIN\\Desktop\\DATOS
 intervalo.polling.ms=2000
 db.url=jdbc:mysql://localhost:3306/logimarket
 db.usuario=root
-db.password=tu_password
+db.password=AQUI_VA_TU_CONTRASENA
 ```
 
 **Compilar:**
@@ -99,9 +103,18 @@ cd VendiaUpdater
 .\ejecutar.bat
 ```
 
+Al iniciar se verá algo como:
+```
+[23:24:53] PLUGIN cargado: [Alerta de Monto] desde plugin-alerta-monto.jar
+[23:24:53] PLUGIN cargado: [Auditoria]       desde plugin-auditoria.jar
+[23:24:53] PLUGINS activos: 2
+[23:24:53] Watcher activo en C:\...\DATOS (cada 2000 ms).
+Daemon activo. Presione ENTER para detener.
+```
+
 El daemon revisa la carpeta cada `intervalo.polling.ms` ms. Por cada `.dat` nuevo
-hace batch insert en MySQL y escribe un `.ack` de confirmación.
-La tabla `ventas` se crea automáticamente. Detener con **ENTER**.
+hace batch insert en MySQL, ejecuta los plugins y escribe un `.ack` de confirmación.
+Detener con **ENTER**.
 
 ---
 
@@ -113,11 +126,11 @@ Servidor Spring Boot con API REST y frontend React. Se conecta a `logimarket` y 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/logimarket
 spring.datasource.username=root
-spring.datasource.password=tu_password
+spring.datasource.password=AQUI_VA_TU_CONTRASENA
 
 mirror.datasource.url=jdbc:mysql://localhost:3306/logimarket_mirror
 mirror.datasource.username=root
-mirror.datasource.password=tu_password
+mirror.datasource.password=AQUI_VA_TU_CONTRASENA
 
 server.port=8080
 ```
@@ -152,6 +165,9 @@ Luego abrir `http://localhost:8080` en el navegador.
 | DELETE | `/api/ventas/{id}` | Elimina lógicamente (solo estado P) |
 | POST | `/api/mirror/sincronizar` | Replica datos de logimarket → logimarket_mirror |
 | GET | `/api/mirror/estado` | Verifica conectividad del Mirror |
+
+> La sincronización al Mirror se hace desde la pestaña **"Capa Mirror"** en la interfaz web,
+> o directamente llamando a `POST /api/mirror/sincronizar`. Debe ejecutarse antes del ETL.
 
 ---
 
@@ -188,7 +204,8 @@ La tabla muestra: **ID Venta · Vendedor · Producto · Fecha · Monto · Estado
 
 ## 4. VendiaSender — Enviar ventas al servidor (al cerrar el turno)
 
-Lee el mismo formato de 170 bytes que VendiaApp. Marca las ventas como enviadas (**E**) después del envío.
+Lee el `ventas.dat` generado por VendiaApp, lo copia a la carpeta compartida `DATOS\`
+y espera el archivo `.ack` de confirmación del servidor. Marca las ventas como enviadas (**E**).
 
 **Compilar:**
 ```powershell
@@ -221,7 +238,21 @@ Ventas marcadas como enviadas (estado=E) en ventas.dat.
 
 ## 5. GenerarDatawareHouse — Cargar el DataWarehouse
 
-Lee los datos desde `logimarket_mirror` (no directamente desde el operacional) y los carga en `logimarket_dw`.
+Lee los datos desde `logimarket_mirror` y los carga en `logimarket_dw`.
+**Requiere que la sincronización al Mirror se haya ejecutado antes** (paso 5 del orden de ejecución).
+
+**Configurar** `GenerarDatawareHouse/dw.properties`:
+```properties
+# Origen: servidor Mirror
+bd.url=jdbc:mysql://localhost:3306/logimarket_mirror
+bd.usuario=root
+bd.password=AQUI_VA_TU_CONTRASENA
+
+# Destino: DataWarehouse
+dw.url=jdbc:mysql://localhost:3306/logimarket_dw
+dw.usuario=root
+dw.password=AQUI_VA_TU_CONTRASENA
+```
 
 **Compilar:**
 ```powershell
@@ -233,19 +264,6 @@ mvn clean package -DskipTests
 ```powershell
 cd GenerarDatawareHouse
 .\ejecutar.bat
-```
-
-**Configurar** `GenerarDatawareHouse/dw.properties`:
-```properties
-# Origen: servidor Mirror
-bd.url=jdbc:mysql://localhost:3306/logimarket_mirror
-bd.usuario=root
-bd.password=tu_password
-
-# Destino: DataWarehouse
-dw.url=jdbc:mysql://localhost:3306/logimarket_dw
-dw.usuario=root
-dw.password=tu_password
 ```
 
 Los campos se precargan automáticamente desde `dw.properties` al abrir la app.
@@ -262,6 +280,13 @@ crean automáticamente si no existen.
 ## 6. CreateCrossTab — Generar cubo OLAP
 
 Genera la tabla cruzada (pivot) de ventas por vendedor y trimestre a partir del DataWarehouse.
+
+**Configurar** `CreateCrossTab/crosstab.properties`:
+```properties
+dw.url=jdbc:mysql://localhost:3306/logimarket_dw
+dw.usuario=root
+dw.password=AQUI_VA_TU_CONTRASENA
+```
 
 **Compilar:**
 ```powershell
@@ -310,7 +335,8 @@ cd ViewCrossTab
 .\ejecutar.bat
 ```
 
-> Las credenciales se guardan automáticamente en `crosstab.properties` después de la primera conexión exitosa. Desde la segunda vez en adelante los campos se precargan solos y la app se conecta automáticamente al iniciar.
+> Las credenciales se guardan automáticamente en `crosstab.properties` después de la primera
+> conexión exitosa. Desde la segunda vez en adelante los campos se precargan solos.
 
 **Las 3 pestañas disponibles:**
 
@@ -319,6 +345,119 @@ cd ViewCrossTab
 | Tabla Cruzada (Pivot) | Grilla vendedor × Q1/Q2/Q3/Q4 con montos en S/. y cantidad de transacciones |
 | Gráfico de Barras | Barras agrupadas por vendedor, una barra por trimestre |
 | Distribución por Trimestre | Gráfico de torta con porcentaje y monto total por Q |
+
+---
+
+## ETL Automatizado — ejecutar_etl.bat
+
+En vez de ejecutar GenerarDatawareHouse y CreateCrossTab manualmente uno por uno,
+se puede usar el script `ejecutar_etl.bat` ubicado en la raíz del proyecto. Ejecuta
+ambos en secuencia y repite el proceso cada 10 segundos automáticamente.
+
+```powershell
+# Desde la carpeta raíz Arquitectura_cluster/
+.\ejecutar_etl.bat
+```
+
+El script corre en bucle hasta que se cierre la ventana. Útil para mantener el
+DataWarehouse y el cubo OLAP actualizados de forma continua durante una sesión de trabajo.
+
+---
+
+## Sistema de Plugins (Arquitectura Microkernel)
+
+`VendiaUpdater` implementa una **Arquitectura Microkernel**: el core (núcleo) solo detecta
+archivos `.dat` e inserta ventas en MySQL. Toda funcionalidad adicional está en plugins
+`.jar` separados, ubicados en `VendiaUpdater/plugins/`. El core no sabe qué hacen los
+plugins — simplemente los invoca uno por uno después de cada inserción.
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  CORE (VendiaUpdater)               │
+│  FolderWatcher → leer .dat → insertar en MySQL      │
+│                      │                              │
+│              PluginLoader.ejecutarTodos()            │
+└──────────────────────┼──────────────────────────────┘
+                       │
+          ┌────────────┴────────────┐
+          ▼                         ▼
+ plugin-auditoria.jar      plugin-alerta-monto.jar
+```
+
+### Plugins incluidos
+
+#### `plugin-auditoria.jar`
+Registra cada venta en el archivo `auditoria.log` con la fecha/hora exacta, el ID de la
+venta, el vendedor, el producto y el monto. Se activa con **cada** venta que llega,
+sin importar el monto.
+
+Ejemplo de entrada en `auditoria.log`:
+```
+[2026-06-30 23:26:06] VENTA REGISTRADA | id=VTA-001 | vendedor=EMANUEL | producto=P001 | fecha=2026-06-30 23:20 | monto=S/.1500.00
+```
+
+#### `plugin-alerta-monto.jar`
+Monitorea el monto de cada venta. Si supera **S/. 1,000.00**, imprime una alerta visible
+en la consola de VendiaUpdater. Las ventas por debajo del umbral se ignoran.
+
+Ejemplo de alerta en consola:
+```
+============================================
+[PLUGIN AlertaMonto] *** VENTA DE ALTO VALOR ***
+[PLUGIN AlertaMonto] ID      : VTA-001
+[PLUGIN AlertaMonto] Vendedor: EMANUEL
+[PLUGIN AlertaMonto] Monto   : S/. 1500.00
+[PLUGIN AlertaMonto] Supera el umbral de S/. 1000.00
+============================================
+```
+
+### Cómo ejecutarlos
+
+Los plugins se ejecutan **automáticamente** con VendiaUpdater. No requieren ningún comando
+adicional. Los pasos son:
+
+**1. Verificar que los JARs estén en la carpeta `plugins/`:**
+```
+VendiaUpdater/
+└── plugins/
+    ├── plugin-auditoria.jar
+    └── plugin-alerta-monto.jar
+```
+
+**2. Ejecutar VendiaUpdater normalmente:**
+```powershell
+cd VendiaUpdater
+.\ejecutar.bat
+```
+
+**3. Al iniciar, VendiaUpdater confirma qué plugins cargó:**
+```
+[23:24:53] PLUGIN cargado: [Alerta de Monto] desde plugin-alerta-monto.jar
+[23:24:53] PLUGIN cargado: [Auditoria]       desde plugin-auditoria.jar
+[23:24:53] PLUGINS activos: 2
+[23:24:53] Watcher activo en C:\...\DATOS (cada 2000 ms).
+```
+
+**4. Cada vez que llega un `.dat`, los plugins se disparan solos:**
+```
+[23:26:06] Detectado: ventas_20260630.dat (340 bytes)
+[23:26:06]   OK: 2 venta(s) insertada(s) en MySQL.
+
+============================================
+[PLUGIN AlertaMonto] *** VENTA DE ALTO VALOR ***
+[PLUGIN AlertaMonto] ID      : VTA-DEMO-001
+[PLUGIN AlertaMonto] Vendedor: EMANUEL
+[PLUGIN AlertaMonto] Monto   : S/. 1500.00
+[PLUGIN AlertaMonto] Supera el umbral de S/. 1000.00
+============================================
+[PLUGIN Auditoria] VENTA REGISTRADA | id=VTA-DEMO-001 | vendedor=EMANUEL | monto=S/.1500.00
+[PLUGIN Auditoria] VENTA REGISTRADA | id=VTA-DEMO-002 | vendedor=RENZO   | monto=S/.250.00
+```
+
+> `plugin-alerta-monto` solo alertó por VTA-DEMO-001 (S/. 1500 > 1000).
+> `plugin-auditoria` registró las dos ventas en el log.
+
+> Para desactivar un plugin basta con eliminar su JAR de la carpeta `plugins/` y reiniciar VendiaUpdater.
 
 ---
 
@@ -357,15 +496,21 @@ Si preferís no usar PowerShell, todos los módulos se pueden correr directament
 ## Estructura del proyecto
 
 ```
-Logimarket/
+Arquitectura_cluster/
 ├── VendiaApp/              # Cliente desktop JavaFX (cajero)
 ├── VendiaSender/           # Envío por carpeta compartida
 ├── VendiaUpdater/          # Daemon servidor de BD
+│   └── plugins/            # JARs de plugins (cargados dinámicamente)
+│       ├── plugin-auditoria.jar
+│       └── plugin-alerta-monto.jar
 ├── VendiaWeb/              # Servidor web Spring Boot + React
 │   └── frontend/           # Proyecto React (Vite)
 ├── GenerarDatawareHouse/   # ETL Mirror → DataWarehouse
 ├── CreateCrossTab/         # Generador de cubo OLAP (pivot trimestral)
-└── ViewCrossTab/           # Visualizador de cubo OLAP (tabla + gráficos)
+├── ViewCrossTab/           # Visualizador de cubo OLAP (tabla + gráficos)
+├── plugin-auditoria/       # Código fuente plugin de auditoría
+├── plugin-alerta-monto/    # Código fuente plugin de alertas
+└── ejecutar_etl.bat        # Script que automatiza ETL + CrossTab en bucle
 ```
 
 ---
@@ -373,21 +518,26 @@ Logimarket/
 ## Flujo completo del sistema
 
 ```
-[PC Cajero]                [Servidor]                      [Análisis]
-VendiaApp         →    VendiaUpdater   →   logimarket (MySQL)
-(ventas.dat local)     (daemon)                 ↓
-                                           VendiaWeb (REST API)
-VendiaSender      →    carpeta DATOS          ↓
-(envío .dat)           (shared folder)    Mirror: logimarket_mirror
-                                               ↓
-                                       GenerarDatawareHouse (ETL)
-                                               ↓
-                                       logimarket_dw
-                                       (dim_vendedor, dim_fecha, fact_ventas)
-                                               ↓
-                                         CreateCrossTab
-                                       (genera crosstab_ventas)
-                                               ↓
-                                          ViewCrossTab
-                                     (tabla pivot + gráficos OLAP)
+[PC Cajero]                    [Servidor BD]                   [Análisis]
+VendiaApp              →    VendiaUpdater
+(guarda ventas.dat)         (daemon, detecta .dat)
+                                    ↓
+VendiaSender           →    logimarket (MySQL)
+(copia .dat a DATOS\)       (ventas insertadas)
+                                    ↓
+                            VendiaWeb (REST API)
+                            POST /api/mirror/sincronizar
+                                    ↓
+                            logimarket_mirror (MySQL)
+                                    ↓
+                            GenerarDatawareHouse (ETL)
+                                    ↓
+                            logimarket_dw
+                            (dim_vendedor, dim_fecha, fact_ventas)
+                                    ↓
+                            CreateCrossTab
+                            (genera crosstab_ventas)
+                                    ↓
+                            ViewCrossTab
+                            (tabla pivot + gráficos OLAP)
 ```

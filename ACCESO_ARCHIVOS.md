@@ -28,6 +28,8 @@ if (ids.contains(v.getIdVenta())) {
 
 `leerPendientes` en cambio es lectura secuencial pura — podría haberse usado un stream normal, pero se usó `RandomAccessFile` por consistencia con el resto de la clase.
 
+> Nota: cada registro ocupa **170 bytes** (id_venta + id_vendedor + id_producto + fecha = 4 × 20 chars × 2 bytes/char = 160 bytes, más 8 bytes del double y 2 bytes del char estado).
+
 ---
 
 ## Sin `RandomAccessFile` — streams secuenciales

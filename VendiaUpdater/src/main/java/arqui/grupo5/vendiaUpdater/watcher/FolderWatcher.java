@@ -1,5 +1,6 @@
 package arqui.grupo5.vendiaUpdater.watcher;
 
+import arqui.grupo5.plugin.PluginLoader;
 import arqui.grupo5.vendiaUpdater.db.MySqlRepository;
 import arqui.grupo5.vendiaUpdater.model.Venta;
 
@@ -31,19 +32,21 @@ public class FolderWatcher {
     private final String           dbUser;
     private final String           dbPassword;
     private final Consumer<String> logger;
+    private final PluginLoader     pluginLoader;
 
     private volatile boolean running;
     private Thread           hilo;
 
     public FolderWatcher(String rutaCarpeta, long intervaloMs,
                          String dbUrl, String dbUser, String dbPassword,
-                         Consumer<String> logger) {
-        this.carpeta     = new File(rutaCarpeta).toPath();
-        this.intervaloMs = intervaloMs;
-        this.dbUrl       = dbUrl;
-        this.dbUser      = dbUser;
-        this.dbPassword  = dbPassword;
-        this.logger      = logger;
+                         Consumer<String> logger, PluginLoader pluginLoader) {
+        this.carpeta      = new File(rutaCarpeta).toPath();
+        this.intervaloMs  = intervaloMs;
+        this.dbUrl        = dbUrl;
+        this.dbUser       = dbUser;
+        this.dbPassword   = dbPassword;
+        this.logger       = logger;
+        this.pluginLoader = pluginLoader;
     }
 
     public void iniciar() throws IOException {
@@ -121,6 +124,10 @@ public class FolderWatcher {
                 db.insertarBatch(ventas);
             }
             logger.accept("  OK: " + ventas.size() + " venta(s) insertada(s) en MySQL.");
+            for (Venta v : ventas) {
+                pluginLoader.ejecutarTodos(v.getIdVenta(), v.getIdVendedor(),
+                    v.getIdProducto(), v.getFecha(), v.getMontoTotal());
+            }
             escribirAck(ack, "OK " + ventas.size());
         } catch (Exception e) {
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();

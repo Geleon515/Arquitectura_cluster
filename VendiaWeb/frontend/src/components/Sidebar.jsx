@@ -1,5 +1,6 @@
 const ITEMS = [
   { id: 'ventas', label: 'Gestion de Ventas' },
+  { id: 'soap',   label: 'Web Service SOAP'  },
   { id: 'mirror', label: 'Capa Mirror'        },
 ]
 

@@ -9,7 +9,7 @@ análisis OLAP. Implementa el patrón **MVC** en todas sus capas:
 |-----|-----------|
 | Modelo | Base de datos MySQL + repositorios JDBC |
 | Vista | React + Vite (VendiaWeb) / JavaFX (apps de escritorio) |
-| Controlador | Spring Boot REST API (VendiaWeb) / controladores Java (apps) |
+| Controlador | Spring Boot REST API + SOAP WS (VendiaWeb) / controladores Java (apps) |
 
 ---
 
@@ -20,7 +20,7 @@ análisis OLAP. Implementa el patrón **MVC** en todas sus capas:
 | `VendiaApp` | Cliente | App de escritorio JavaFX para cajeros. Almacena ventas en archivos binarios locales |
 | `VendiaSender` | Transferencia | Envía los archivos `.dat` al servidor por carpeta compartida |
 | `VendiaUpdater` | Servidor BD | Daemon que detecta `.dat`, inserta en MySQL y ejecuta plugins |
-| `VendiaWeb` | Aplicación Web | Servidor web Spring Boot con API REST y frontend React |
+| `VendiaWeb` | Aplicación Web | Servidor web Spring Boot con API REST, Web Service SOAP y frontend React |
 | `GenerarDatawareHouse` | DataWarehouse | App JavaFX que realiza el ETL desde el Mirror hacia el DW |
 | `CreateCrossTab` | OLAP | App JavaFX que genera el cubo OLAP (tabla cruzada por trimestre) |
 | `ViewCrossTab` | OLAP | App JavaFX para visualizar el cubo OLAP con gráficos y tabla pivot |
@@ -120,7 +120,7 @@ Detener con **ENTER**.
 
 ## 2. VendiaWeb — Servidor de Aplicaciones Web (MVC)
 
-Servidor Spring Boot con API REST y frontend React. Se conecta a `logimarket` y `logimarket_mirror`.
+Servidor Spring Boot con API REST, Web Service SOAP y frontend React. Se conecta a `logimarket` y `logimarket_mirror`.
 
 **Configurar** `VendiaWeb/src/main/resources/application.properties`:
 ```properties
@@ -168,6 +168,87 @@ Luego abrir `http://localhost:8080` en el navegador.
 
 > La sincronización al Mirror se hace desde la pestaña **"Capa Mirror"** en la interfaz web,
 > o directamente llamando a `POST /api/mirror/sincronizar`. Debe ejecutarse antes del ETL.
+
+### Web Service SOAP
+
+Además de la API REST, VendiaWeb expone un **Web Service SOAP** para integración con herramientas como SoapUI, clientes Java, .NET u otros sistemas que consuman WSDL.
+
+**URL del WSDL:** `http://localhost:8080/ws/ventas.wsdl`
+
+**Operaciones disponibles:**
+
+| Operación | Descripción | Parámetros de entrada | Respuesta |
+|-----------|-------------|-----------------------|-----------|
+| `getVenta` | Buscar venta por ID | `idVenta` (string) | Datos completos de la venta + mensaje |
+| `getAllVentas` | Listar todas las ventas activas | (ninguno) | Lista de ventas + total |
+| `registrarVenta` | Crear una nueva venta | `idVendedor`, `idProducto`, `montoTotal` | `idVenta` generado + mensaje |
+
+**Namespace XML:** `http://arqui.grupo5.web/soap/ventas`
+
+**Archivos involucrados:**
+
+| Archivo | Función |
+|---------|---------|
+| `src/main/resources/xsd/ventas.xsd` | Esquema XML que define la estructura de las peticiones y respuestas |
+| `src/main/java/arqui/grupo5/web/soap/WebServiceConfig.java` | Configuración `@EnableWs` que registra el servlet SOAP en `/ws/*` |
+| `src/main/java/arqui/grupo5/web/soap/VentaEndpoint.java` | Endpoint `@Endpoint` que procesa las peticiones SOAP |
+
+**Dependencias adicionales en `pom.xml`:**
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web-services</artifactId>
+</dependency>
+<dependency>
+    <groupId>wsdl4j</groupId>
+    <artifactId>wsdl4j</artifactId>
+</dependency>
+```
+
+> El plugin `jaxb2-maven-plugin` genera automáticamente las clases JAXB a partir del XSD durante `mvn compile`.
+
+**Probar con SoapUI:**
+
+1. Abrir SoapUI → **File → New SOAP Project**
+2. En **Initial WSDL** pegar: `http://localhost:8080/ws/ventas.wsdl`
+3. SoapUI genera automáticamente los requests de ejemplo para las 3 operaciones
+
+**Ejemplo — registrar una venta vía SOAP:**
+```xml
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:ven="http://arqui.grupo5.web/soap/ventas">
+   <soapenv:Body>
+      <ven:registrarVentaRequest>
+         <ven:idVendedor>V001</ven:idVendedor>
+         <ven:idProducto>P001</ven:idProducto>
+         <ven:montoTotal>1500.50</ven:montoTotal>
+      </ven:registrarVentaRequest>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
+**Ejemplo — buscar una venta por ID:**
+```xml
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:ven="http://arqui.grupo5.web/soap/ventas">
+   <soapenv:Body>
+      <ven:getVentaRequest>
+         <ven:idVenta>VTA-20260706-120000</ven:idVenta>
+      </ven:getVentaRequest>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
+**Ejemplo — listar todas las ventas:**
+```xml
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:ven="http://arqui.grupo5.web/soap/ventas">
+   <soapenv:Body>
+      <ven:getAllVentasRequest/>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
 
 ---
 
@@ -503,8 +584,11 @@ Arquitectura_cluster/
 │   └── plugins/            # JARs de plugins (cargados dinámicamente)
 │       ├── plugin-auditoria.jar
 │       └── plugin-alerta-monto.jar
-├── VendiaWeb/              # Servidor web Spring Boot + React
-│   └── frontend/           # Proyecto React (Vite)
+├── VendiaWeb/              # Servidor web Spring Boot + React + SOAP WS
+│   ├── frontend/           # Proyecto React (Vite)
+│   └── src/main/
+│       ├── java/.../soap/   # WebServiceConfig.java + VentaEndpoint.java
+│       └── resources/xsd/   # ventas.xsd (esquema WSDL)
 ├── GenerarDatawareHouse/   # ETL Mirror → DataWarehouse
 ├── CreateCrossTab/         # Generador de cubo OLAP (pivot trimestral)
 ├── ViewCrossTab/           # Visualizador de cubo OLAP (tabla + gráficos)

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://arqui.grupo5.web/soap/ventas"
+           targetNamespace="http://arqui.grupo5.web/soap/ventas"
+           elementFormDefault="qualified">
+
+    <!-- ============================================================
+         Tipo reutilizable: datos completos de una Venta
+         ============================================================ -->
+    <xs:complexType name="ventaInfo">
+        <xs:sequence>
+            <xs:element name="idVenta"    type="xs:string"/>
+            <xs:element name="idVendedor" type="xs:string"/>
+            <xs:element name="idProducto" type="xs:string"/>
+            <xs:element name="fecha"      type="xs:string"/>
+            <xs:element name="montoTotal" type="xs:double"/>
+            <xs:element name="estado"     type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- ============================================================
+         Operación 1: getVenta  —  Buscar venta por ID
+         ============================================================ -->
+    <xs:element name="getVentaRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="idVenta" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="getVentaResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="venta"   type="tns:ventaInfo" minOccurs="0"/>
+                <xs:element name="mensaje" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ============================================================
+         Operación 2: getAllVentas  —  Listar todas las ventas
+         ============================================================ -->
+    <xs:element name="getAllVentasRequest">
+        <xs:complexType>
+            <xs:sequence/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="getAllVentasResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ventas"  type="tns:ventaInfo" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="total"   type="xs:int"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ============================================================
+         Operación 3: registrarVenta  —  Crear nueva venta
+         ============================================================ -->
+    <xs:element name="registrarVentaRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="idVendedor" type="xs:string"/>
+                <xs:element name="idProducto" type="xs:string"/>
+                <xs:element name="montoTotal" type="xs:double"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="registrarVentaResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="idVenta" type="xs:string"/>
+                <xs:element name="mensaje" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

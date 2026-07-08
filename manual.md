@@ -145,6 +145,44 @@ Esperar hasta ver:
 
 Abrir `http://localhost:8080` en el navegador. Desde ahí se gestionan ventas y se sincroniza al Mirror.
 
+#### Web Service SOAP (probar con SoapUI)
+
+VendiaWeb también expone un **Web Service SOAP** con WSDL auto-generado.
+
+**URL del WSDL:** `http://localhost:8080/ws/ventas.wsdl`
+
+**Operaciones disponibles:**
+
+| Operación | Descripción | Entrada |
+|-----------|-------------|---------|
+| `getVenta` | Buscar venta por ID | `idVenta` |
+| `getAllVentas` | Listar todas las ventas | (ninguno) |
+| `registrarVenta` | Crear nueva venta | `idVendedor`, `idProducto`, `montoTotal` |
+
+**Pasos para probar con SoapUI:**
+
+1. Asegurarse de que VendiaWeb esté corriendo (`http://localhost:8080`)
+2. Abrir SoapUI → **File → New SOAP Project**
+3. En **Initial WSDL** pegar: `http://localhost:8080/ws/ventas.wsdl`
+4. SoapUI genera los requests de ejemplo automáticamente
+5. Seleccionar una operación (ej: `registrarVenta`) y completar los valores:
+
+```xml
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:ven="http://arqui.grupo5.web/soap/ventas">
+   <soapenv:Body>
+      <ven:registrarVentaRequest>
+         <ven:idVendedor>V001</ven:idVendedor>
+         <ven:idProducto>P001</ven:idProducto>
+         <ven:montoTotal>1500.50</ven:montoTotal>
+      </ven:registrarVentaRequest>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
+> El WSDL se genera automáticamente a partir del esquema XSD en `src/main/resources/xsd/ventas.xsd`. Las clases JAXB se generan con `mvn compile` mediante el plugin `jaxb2-maven-plugin`.
+
+
 ---
 
 ### 5.3 VendiaApp — registrar ventas (PC del cajero)

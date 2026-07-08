@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Sidebar }    from './components/Sidebar'
 import { Topbar }     from './components/Topbar'
 import { PageVentas } from './components/PageVentas'
+import { PageSoap }   from './components/PageSoap'
 import { PageMirror } from './components/PageMirror'
 import { Toast, useToast } from './components/Toast'
 
 const TITLES = {
   ventas: 'Gestion de Ventas',
+  soap:   'Web Service SOAP',
   mirror: 'Capa Mirror — Replicacion',
 }
 
@@ -21,9 +23,11 @@ export default function App() {
       <div id="main">
         <Topbar title={TITLES[page]} stats={stats} />
         {page === 'ventas' && <PageVentas setStats={setStats} toast={toast} />}
+        {page === 'soap'   && <PageSoap toast={toast} />}
         {page === 'mirror' && <PageMirror toast={toast} />}
       </div>
       <Toast />
     </>
   )
 }
+
